@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="The Lawn Lads - local lawn care and gardening services in Hinckley, LE10.">
+<title>The Lawn Lads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  :root {
+    --ground: #f4efe1;
+    --surface: #fffcf4;
+    --surface-tint: #eae1c7;
+    --line: #d6cbab;
+    --ink: #211f16;
+    --ink-soft: #55523f;
+    --green-deep: #3d6144;
+    --green-mid: #57774f;
+    --green-bright: #7f9968;
+    --clover: #e2e8ce;
+    --accent: #d97e2b;
+    --shadow-color: #211f16;
+    --hard: 5px 5px 0 0 var(--shadow-color);
+    --hard-sm: 3px 3px 0 0 var(--shadow-color);
+  }
+
+  /* This site always uses the light palette above, by design — no dark-mode
+     variant, regardless of the viewer's device setting. */
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+    padding: 0 max(16px, calc((100vw - 1140px) / 2));
+    line-height: 1.6;
+    font-size: 17px;
+  }
+
+  h1, h2 {
+    font-family: "Archivo Black", "Atkinson Hyperlegible", sans-serif;
+    font-weight: 400;
+    text-wrap: balance;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  h3, .brand {
+    font-family: "Atkinson Hyperlegible", sans-serif;
+    font-weight: 700;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  a { color: inherit; }
+
+  .skip-link:not(:focus) {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .mark-hl {
+    background-image: linear-gradient(var(--accent), var(--accent));
+    background-repeat: no-repeat;
+    background-size: 100% 0.36em;
+    background-position: 0 88%;
+    padding: 0 0.05em;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-block: 24px;
+    border-bottom: 3px solid var(--ink);
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.4rem;
+    text-decoration: none;
+  }
+
+  .brand .mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    background: var(--green-deep);
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    color: #fffcf4;
+    transform: rotate(-4deg);
+  }
+
+  nav {
+    display: flex;
+    gap: 26px;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  nav a { text-decoration: none; color: var(--ink-soft); }
+  nav a:hover, nav a:focus-visible { color: var(--green-deep); text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 4px; }
+
+  .nav-cta {
+    padding: 9px 18px;
+    background: var(--green-deep);
+    color: #fffcf4;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    box-shadow: var(--hard-sm);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .nav-cta:hover, .nav-cta:focus-visible { background: var(--green-mid); }
+  .nav-cta:active { transform: translate(3px, 3px); box-shadow: none; }
+
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 48px;
+    align-items: center;
+    padding-block: 60px 52px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "Atkinson Hyperlegible", sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--accent);
+    border: 2px solid var(--ink);
+    padding: 6px 14px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    transform: rotate(-1.5deg);
+  }
+
+  .hero h1 {
+    font-size: clamp(2.5rem, 5vw, 3.9rem);
+    line-height: 1.02;
+    margin: 0 0 20px;
+  }
+
+  .hero p.lede {
+    font-size: 1.2rem;
+    color: var(--ink-soft);
+    max-width: 46ch;
+    margin: 0 0 30px;
+    font-weight: 400;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    padding: 15px 26px;
+    background: var(--green-deep);
+    color: #fffcf4;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.02rem;
+    box-shadow: var(--hard);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .btn-primary:hover, .btn-primary:focus-visible { background: var(--green-mid); }
+  .btn-primary:active { transform: translate(5px, 5px); box-shadow: none; }
+
+  .btn-ghost {
+    padding: 15px 26px;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.02rem;
+    color: var(--ink);
+    background: var(--surface);
+    box-shadow: var(--hard);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .btn-ghost:hover, .btn-ghost:focus-visible { color: var(--green-deep); }
+  .btn-ghost:active { transform: translate(5px, 5px); box-shadow: none; }
+
+  .hero-art {
+    position: relative;
+    aspect-ratio: 4 / 3.3;
+    border-radius: 14px;
+    border: 3px solid var(--ink);
+    background:
+      linear-gradient(180deg, transparent 60%, rgba(33,31,22,0.16) 100%),
+      repeating-linear-gradient(90deg, var(--green-bright) 0 36px, var(--green-mid) 36px 72px);
+    overflow: hidden;
+    box-shadow: var(--hard);
+    max-width: 100%;
+    transform: rotate(1deg);
+  }
+
+  .hero-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* ---------- areas strip ---------- */
+  .areas {
+    padding-block: 24px;
+    border-top: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 0.98rem;
+    color: var(--ink-soft);
+  }
+  .areas strong { color: var(--ink); font-weight: 700; }
+  .areas ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+  .areas li:not(:last-child)::after { content: "·"; margin-left: 6px; color: var(--ink-soft); }
+
+  /* ---------- section shell ---------- */
+  section.block { padding-block: 68px; }
+  section.block.tight { padding-block: 50px; }
+
+  .section-head { max-width: 62ch; margin-bottom: 38px; }
+  .section-head .eyebrow { margin-bottom: 16px; }
+  .section-head h2 { font-size: clamp(1.8rem, 3vw, 2.4rem); margin: 0 0 14px; }
+  .section-head p { color: var(--ink-soft); margin: 0; font-size: 1.06rem; }
+
+  /* ---------- services ---------- */
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+  }
+
+  .service-card {
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--hard-sm);
+  }
+  .service-card:nth-child(2) { transform: rotate(0.6deg); }
+  .service-card:nth-child(3) { transform: rotate(-0.6deg); }
+
+  .service-card .icon {
+    width: 42px; height: 42px;
+    display: grid; place-items: center;
+    background: var(--clover);
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    color: var(--green-deep);
+  }
+
+  .service-card h3 { font-size: 1.14rem; margin: 0; }
+  .service-card p { margin: 0; color: var(--ink-soft); font-size: 0.97rem; }
+  .service-card .freq { font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--green-deep); font-weight: 700; }
+
+  /* ---------- pricing ---------- */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+  }
+
+  .price-card {
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    padding: 28px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: var(--hard-sm);
+  }
+  .price-card.featured {
+    position: relative;
+    transform: rotate(-0.7deg);
+  }
+  .price-card.featured::before {
+    content: "Most booked";
+    position: absolute;
+    top: -14px;
+    left: 24px;
+    background: var(--accent);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border: 2px solid var(--ink);
+    border-radius: 5px;
+    transform: rotate(2deg);
+  }
+  .price-card h3 { font-size: 1.14rem; margin: 0; }
+  .price-card .amount {
+    font-family: "Archivo Black", sans-serif;
+    font-size: 2.4rem;
+    color: var(--green-deep);
+    font-variant-numeric: tabular-nums;
+  }
+  .price-card p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
+  .price-note { margin-top: 18px; font-size: 0.9rem; color: var(--ink-soft); }
+
+  /* ---------- before/after (kept snapshot-plain, not product photography) ---------- */
+  .before-after {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  .ba-card {
+    position: relative;
+    background: var(--surface);
+    border: 10px solid var(--surface);
+    border-bottom-width: 34px;
+    box-shadow: var(--hard-sm);
+  }
+  .ba-card:first-child { transform: rotate(-2deg); margin-top: 18px; }
+  .ba-card:last-child { transform: rotate(1.3deg); }
+
+  .ba-card img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 420px;
+    object-fit: cover;
+    filter: saturate(0.94) contrast(1.03);
+  }
+
+  .ba-tag {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    background: var(--accent);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 5px 11px;
+    border: 2px solid var(--ink);
+    transform: rotate(-4deg);
+  }
+  .ba-tag.after { background: var(--surface); }
+
+  .ba-caption {
+    position: absolute;
+    bottom: -30px;
+    left: 4px;
+    right: 4px;
+    font-size: 0.85rem;
+    font-family: "Atkinson Hyperlegible", sans-serif;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+
+  /* ---------- social links ---------- */
+  .social-row { display: flex; gap: 10px; }
+
+  .social-link {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    color: var(--ink);
+    text-decoration: none;
+    background: var(--surface);
+  }
+  .social-link:hover, .social-link:focus-visible { color: var(--green-deep); background: var(--clover); }
+
+  .contact-social {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .contact-social a {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(255,252,244,0.1);
+    border: 2px solid rgba(255,252,244,0.5);
+    color: #fffcf4;
+    text-decoration: none;
+  }
+  .contact-social a:hover, .contact-social a:focus-visible { background: rgba(255,252,244,0.22); }
+
+  /* ---------- about (deliberately asymmetric) ---------- */
+  .about {
+    display: grid;
+    grid-template-columns: 1.5fr 0.8fr;
+    gap: 12px 56px;
+    align-items: start;
+    padding: 8px 0 8px 0;
+  }
+
+  .about h2 { font-size: clamp(1.6rem, 2.4vw, 2rem); margin: 0 0 18px; }
+  .about p { color: var(--ink-soft); margin: 0 0 14px; }
+  .about p:last-child { margin-bottom: 0; }
+
+  .about-photo-note {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    border: 2px dashed var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    text-align: center;
+    margin-top: 46px;
+    transform: rotate(1.5deg);
+  }
+
+  .about-evidence {
+    grid-column: 1;
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 2px solid var(--ink);
+  }
+  .about-evidence h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px; }
+  .about-evidence ul { margin: 0; padding: 0 0 0 1.1em; color: var(--ink-soft); }
+  .about-evidence li { margin-bottom: 6px; }
+
+  /* ---------- process ---------- */
+  .process {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 22px;
+  }
+  .step {
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    padding: 22px 20px 24px;
+    background: var(--surface);
+  }
+  .step:nth-child(2) { transform: rotate(0.5deg); }
+  .step:nth-child(4) { transform: rotate(-0.5deg); }
+  .step .num {
+    font-family: "Archivo Black", sans-serif;
+    color: var(--accent);
+    -webkit-text-stroke: 1.5px var(--ink);
+    font-size: 2.4rem;
+    line-height: 1;
+    display: block;
+    margin-bottom: 10px;
+  }
+  .step h3 { font-size: 1.15rem; margin: 0 0 8px; }
+  .step p { margin: 0; color: var(--ink-soft); font-size: 0.96rem; }
+
+  /* ---------- contact / booking ---------- */
+  .contact {
+    background: var(--green-deep);
+    color: #fffcf4;
+    border: 3px solid var(--ink);
+    border-radius: 16px;
+    padding: 42px;
+    display: grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: 36px;
+    align-items: start;
+    box-shadow: var(--hard);
+  }
+  .contact h2 { color: #fffcf4; margin: 0 0 14px; font-size: clamp(1.6rem, 2.4vw, 2rem); }
+  .contact > div:first-child p { color: #dfe9d3; margin: 0 0 22px; max-width: 40ch; font-size: 1.05rem; }
+
+  .contact-fallback {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 2px solid rgba(255,252,244,0.35);
+  }
+  .contact-fallback .label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #cdddbb; display: block; margin-bottom: 8px; font-weight: 700; }
+  .contact-fallback a.value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #fffcf4;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
+  .contact-fallback a.value:hover, .contact-fallback a.value:focus-visible { color: var(--accent); }
+
+  .booking-card {
+    background: var(--surface);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: var(--hard);
+  }
+
+  .cal-preview {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: var(--clover);
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .cal-preview strong { display: block; font-size: 1rem; margin-bottom: 4px; }
+  .cal-preview span { display: block; font-size: 0.88rem; color: var(--ink-soft); }
+
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+  .field label { font-size: 0.88rem; font-weight: 700; color: var(--ink); }
+  .field .hint { font-size: 0.8rem; color: var(--ink-soft); font-weight: 400; }
+
+  .field input[type="text"],
+  .field input[type="date"],
+  .field textarea {
+    font: inherit;
+    font-size: 0.98rem;
+    padding: 11px 13px;
+    border-radius: 7px;
+    border: 2px solid var(--ink);
+    background: var(--ground);
+    color: var(--ink);
+  }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .field input:focus-visible, .field textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .pill-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill-group input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .pill-group label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 9px 16px;
+    border-radius: 7px;
+    border: 2px solid var(--ink);
+    color: var(--ink);
+    cursor: pointer;
+    background: var(--surface);
+  }
+  .pill-group input:checked + label {
+    background: var(--green-deep);
+    border-color: var(--ink);
+    color: #fffcf4;
+  }
+  .pill-group input:focus-visible + label { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .btn-whatsapp {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px 20px;
+    background: var(--green-deep);
+    color: #fffcf4;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    font: inherit;
+    font-weight: 700;
+    font-size: 1.05rem;
+    text-decoration: none;
+    cursor: pointer;
+    margin-top: 4px;
+    box-shadow: var(--hard-sm);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .btn-whatsapp:hover, .btn-whatsapp:focus-visible { background: var(--green-mid); }
+  .btn-whatsapp:active { transform: translate(3px, 3px); box-shadow: none; }
+
+  /* ---------- footer ---------- */
+  footer {
+    border-top: 3px solid var(--ink);
+    padding-block: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+
+  @media (max-width: 820px) {
+    .hero { grid-template-columns: 1fr; padding-block: 40px 34px; }
+    .hero-art { order: -1; }
+    .before-after { grid-template-columns: 1fr; }
+    .about { grid-template-columns: 1fr; }
+    .about-photo-note { grid-column: 1; grid-row: auto; margin-top: 20px; }
+    .about-evidence { grid-column: 1; }
+    .contact { grid-template-columns: 1fr; padding: 30px 24px; }
+    .field-row { grid-template-columns: 1fr; }
+    .service-card:nth-child(2), .service-card:nth-child(3) { transform: none; }
+    .ba-card:first-child, .ba-card:last-child { transform: none; }
+    nav { display: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header>
+  <a class="brand" href="#top">
+    <span class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 23c0-7 3-10 8-12-1 6-3 10-8 12Z" fill="currentColor"/>
+        <path d="M13 23c0-8-3-12-9-14 1 7 3 12 9 14Z" fill="currentColor" opacity="0.75"/>
+        <path d="M13 23V9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </span>
+    The Lawn Lads
+  </a>
+  <nav aria-label="Primary">
+    <a href="#services">Services</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#about">About</a>
+    <a href="#areas">Areas</a>
+    <a href="#contact">Contact</a>
+  </nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <a href="tel:+447912613180" style="display:flex; align-items:center; gap:6px; text-decoration:none; color:var(--ink); font-weight:700; font-size:0.95rem; white-space:nowrap;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      07912 613180
+    </a>
+    <div class="social-row">
+      <a class="social-link" href="https://www.tiktok.com/@thelawnladofficial" target="_blank" rel="noopener noreferrer" aria-label="The Lawn Lads on TikTok">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 5.82c-.9-.87-1.44-2.06-1.5-3.32h-3.2v13.4c0 1.5-1.22 2.72-2.72 2.72a2.72 2.72 0 1 1 0-5.44c.28 0 .55.04.8.12V9.9a6.02 6.02 0 0 0-.8-.05A6 6 0 0 0 3.18 15.85 6 6 0 0 0 9.18 21.8a6 6 0 0 0 6-6V9.34a8.18 8.18 0 0 0 4.64 1.44V7.6a5.13 5.13 0 0 1-3.22-1.78z"/></svg>
+      </a>
+      <a class="social-link" href="https://www.facebook.com/share/1Fd31yAZ1t/" target="_blank" rel="noopener noreferrer" aria-label="The Lawn Lads on Facebook">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 21v-7.8h2.62l.39-3.04h-3.01V8.24c0-.88.24-1.48 1.5-1.48h1.6V4.05C15.87 4 15.05 3.93 14.1 3.93c-2.02 0-3.4 1.23-3.4 3.5v1.94H8.06v3.04h2.64V21h2.8z"/></svg>
+      </a>
+    </div>
+    <a class="nav-cta" href="https://cal.com/finley-glover-enio4n" target="_blank" rel="noopener noreferrer">Book online</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="top">
+    <div>
+      <span class="eyebrow">Hinckley &amp; LE10 · Est. 2026</span>
+      <h1>Lawn care from a lad who <span class="mark-hl">actually turns up.</span></h1>
+      <p class="lede">The Lawn Lads keeps gardens around Hinckley tidy — regular mowing, edging and tidy-ups, run by a local 16-year-old who knows the streets because he grew up on them.</p>
+      <div class="hero-ctas">
+        <a class="btn-primary" href="https://cal.com/finley-glover-enio4n" target="_blank" rel="noopener noreferrer">Book online now</a>
+        <a class="btn-ghost" href="#services">See what's included</a>
+      </div>
+    </div>
+    <div class="hero-art" role="img" aria-label="Illustration of freshly mown striped lawn">
+      <svg viewBox="0 0 400 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <circle cx="330" cy="46" r="30" fill="#f4d675"/>
+        <path d="M0 210 Q100 180 200 205 T400 200 V320 H0 Z" fill="#3f7a49"/>
+        <path d="M0 235 Q110 210 200 232 T400 228 V320 H0 Z" fill="#356b3d" opacity="0.85"/>
+      </svg>
+    </div>
+  </section>
+
+  <div class="areas" id="areas">
+    <strong>Covering:</strong>
+    <ul>
+      <li>Hinckley</li>
+      <li>Burbage</li>
+      <li>Earl Shilton</li>
+      <li>Barwell</li>
+      <li>Stoke Golding</li>
+      <li>Sapcote</li>
+    </ul>
+  </div>
+
+  <section class="block" id="services">
+    <div class="section-head">
+      <h2>The basics, done properly and on time</h2>
+      <p>A short, no-nonsense list to start with — more will be added as the business grows.</p>
+    </div>
+    <div class="services-grid">
+      <article class="service-card">
+        <span class="icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <span class="freq">Weekly / fortnightly</span>
+        <h3>Lawn mowing</h3>
+        <p>Regular cuts with clippings collected, so the lawn stays neat between visits rather than just after one.</p>
+      </article>
+      <article class="service-card">
+        <span class="icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 20 20 4M9 20l11-11M4 15l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <span class="freq">Add-on</span>
+        <h3>Edging &amp; strimming</h3>
+        <p>Crisp lawn edges and the awkward bits a mower can't reach — fences, borders and around obstacles.</p>
+      </article>
+      <article class="service-card">
+        <span class="icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 20V10a6 6 0 0112 0v10" stroke="currentColor" stroke-width="1.8"/><path d="M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <span class="freq">Seasonal</span>
+        <h3>Hedge trimming</h3>
+        <p>Shaping and light trims for hedges and small shrubs, kept tidy across the growing season.</p>
+      </article>
+      <article class="service-card">
+        <span class="icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 20c4-1 8-1 12-5s4-8 3-11c-3-1-7 1-11 3s-4 8-5 12z" stroke="currentColor" stroke-width="1.8"/></svg>
+        </span>
+        <span class="freq">One-off</span>
+        <h3>Garden tidy-ups</h3>
+        <p>Weeding, general clearing and a proper reset for gardens that have gotten away from you.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block tight" id="pricing">
+    <div class="section-head">
+      <span class="eyebrow">Pricing</span>
+      <h2>Simple, upfront prices</h2>
+      <p>No call-outs, no hidden extras — an average front or back garden in Hinckley and around. Bigger or overgrown gardens quoted on request.</p>
+    </div>
+    <div class="pricing-grid">
+      <article class="price-card">
+        <h3>Basic mow</h3>
+        <div class="amount">£8.50</div>
+        <p>A single cut with clippings collected — ideal if you're already keeping the edges tidy yourself.</p>
+      </article>
+      <article class="price-card featured">
+        <h3>Mow &amp; strim</h3>
+        <div class="amount">£15</div>
+        <p>A full cut plus edging and strimming around borders, fences and obstacles — the most booked option.</p>
+      </article>
+    </div>
+    <p class="price-note">Prices are for a typical garden. For hedges, tidy-ups or anything larger, get a free quote — it only takes a minute.</p>
+  </section>
+
+  <section class="block tight">
+    <div class="section-head">
+      <h2>An overgrown patch, sorted in one visit</h2>
+      <p>An actual job from around Hinckley — knee-high grass gone to seed, cut back and cleared in a single visit.</p>
+    </div>
+    <div class="before-after">
+      <figure class="ba-card">
+        <span class="ba-tag">Before</span>
+        <img src="before.jpg" alt="Overgrown garden path with knee-high grass gone to seed, before The Lawn Lads visited">
+        <figcaption class="ba-caption">Grass left to grow long and gone to seed, path barely visible.</figcaption>
+      </figure>
+      <figure class="ba-card">
+        <span class="ba-tag after">After</span>
+        <img src="after.jpg" alt="Same garden path freshly cut short and tidy, after The Lawn Lads visited">
+        <figcaption class="ba-caption">Cut back, cleared and tidy — same spot, same visit.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="block tight" id="about">
+    <div class="about">
+      <div>
+        <h2>Started on his own street, now working across LE10</h2>
+        <p>The Lawn Lads is run by a 16-year-old from Hinckley who started out mowing lawns for neighbours and family friends. It's grown from there — same reliability, same care, now covering gardens across Hinckley and the surrounding villages.</p>
+        <p>No big company, no call centre — just a direct, local service from someone who's easy to reach and shows up when he says he will.</p>
+        <div class="about-evidence">
+          <h3>The facts</h3>
+          <ul>
+            <li>Based in Hinckley, LE10 — working gardens across the town and surrounding villages</li>
+            <li>16 years old, running this alone — no subcontractors, same person every visit</li>
+            <li>Started 2026, learning the trade on real local gardens rather than a training course</li>
+          </ul>
+        </div>
+      </div>
+      <div class="about-photo-note">A real photo of the lad at work goes here once we've got one.</div>
+    </div>
+  </section>
+
+  <section class="block tight">
+    <div class="section-head">
+      <h2>Simple, from first click to first cut</h2>
+    </div>
+    <div class="process">
+      <div class="step">
+        <span class="num">01</span>
+        <h3>Pick a slot</h3>
+        <p>Book online and see real availability — weekly, fortnightly or one-off.</p>
+      </div>
+      <div class="step">
+        <span class="num">02</span>
+        <h3>Instant confirmation</h3>
+        <p>You'll get an email straight away — no waiting to hear back.</p>
+      </div>
+      <div class="step">
+        <span class="num">03</span>
+        <h3>I turn up</h3>
+        <p>On the day you booked, at the time you booked.</p>
+      </div>
+      <div class="step">
+        <span class="num">04</span>
+        <h3>Job done</h3>
+        <p>Lawn cut, edges neat, clippings taken away.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="contact">
+    <div class="contact">
+      <div>
+        <span class="eyebrow" style="background:var(--accent); color:var(--ink);">Book a visit</span>
+        <h2>See real availability, book it yourself</h2>
+        <p>Pick a service and a time straight from the calendar — no back-and-forth needed. You'll get an instant confirmation email.</p>
+
+        <div class="contact-fallback">
+          <span class="label">Prefer to call or text?</span>
+          <a class="value" href="tel:+447912613180">07912 613180</a>
+          <br>
+          <span class="label" style="margin-top:14px;">Or email</span>
+          <a class="value" href="mailto:hello@thelawnlads.co.uk">hello@thelawnlads.co.uk</a>
+        </div>
+        <div class="contact-social" style="margin-top:18px;">
+          <a href="https://www.tiktok.com/@thelawnladofficial" target="_blank" rel="noopener noreferrer" aria-label="The Lawn Lads on TikTok">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 5.82c-.9-.87-1.44-2.06-1.5-3.32h-3.2v13.4c0 1.5-1.22 2.72-2.72 2.72a2.72 2.72 0 1 1 0-5.44c.28 0 .55.04.8.12V9.9a6.02 6.02 0 0 0-.8-.05A6 6 0 0 0 3.18 15.85 6 6 0 0 0 9.18 21.8a6 6 0 0 0 6-6V9.34a8.18 8.18 0 0 0 4.64 1.44V7.6a5.13 5.13 0 0 1-3.22-1.78z"/></svg>
+          </a>
+          <a href="https://www.facebook.com/share/1Fd31yAZ1t/" target="_blank" rel="noopener noreferrer" aria-label="The Lawn Lads on Facebook">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 21v-7.8h2.62l.39-3.04h-3.01V8.24c0-.88.24-1.48 1.5-1.48h1.6V4.05C15.87 4 15.05 3.93 14.1 3.93c-2.02 0-3.4 1.23-3.4 3.5v1.94H8.06v3.04h2.64V21h2.8z"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <div class="booking-card">
+        <div class="cal-preview">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--green-deep)" stroke-width="1.8" aria-hidden="true">
+            <rect x="3" y="4.5" width="18" height="16" rx="2"/>
+            <path d="M3 9.5h18M8 2.5v4M16 2.5v4" stroke-linecap="round"/>
+            <rect x="6.5" y="12.5" width="3.5" height="3.5" fill="var(--green-deep)" stroke="none" rx="0.5"/>
+          </svg>
+          <div>
+            <strong>Live calendar via Cal.com</strong>
+            <span>Choose Basic mow or Mow &amp; strim, then a free slot — confirmed the moment you book, no waiting to hear back.</span>
+          </div>
+        </div>
+        <a class="btn-whatsapp" href="https://cal.com/finley-glover-enio4n" target="_blank" rel="noopener noreferrer">
+          Book online now
+        </a>
+        <p class="hint" style="margin-top:12px; text-align:center;">Opens in a new tab — nothing to download, just pick a time.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>© 2026 The Lawn Lads, Hinckley LE10</span>
+  <div class="social-row">
+    <a class="social-link" href="https://www.tiktok.com/@thelawnladofficial" target="_blank" rel="noopener noreferrer" aria-label="The Lawn Lads on TikTok">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 5.82c-.9-.87-1.44-2.06-1.5-3.32h-3.2v13.4c0 1.5-1.22 2.72-2.72 2.72a2.72 2.72 0 1 1 0-5.44c.28 0 .55.04.8.12V9.9a6.02 6.02 0 0 0-.8-.05A6 6 0 0 0 3.18 15.85 6 6 0 0 0 9.18 21.8a6 6 0 0 0 6-6V9.34a8.18 8.18 0 0 0 4.64 1.44V7.6a5.13 5.13 0 0 1-3.22-1.78z"/></svg>
+    </a>
+    <a class="social-link" href="https://www.facebook.com/share/1Fd31yAZ1t/" target="_blank" rel="noopener noreferrer" aria-label="The Lawn Lads on Facebook">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 21v-7.8h2.62l.39-3.04h-3.01V8.24c0-.88.24-1.48 1.5-1.48h1.6V4.05C15.87 4 15.05 3.93 14.1 3.93c-2.02 0-3.4 1.23-3.4 3.5v1.94H8.06v3.04h2.64V21h2.8z"/></svg>
+    </a>
+  </div>
+  <span>Local lawn care, done right</span>
+</footer>
+</body>
+</html>

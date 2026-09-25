@@ -28,7 +28,7 @@ var LAWN_LADS_CONFIG = {
   // public, like everything in this file. The SECRET key must never go in this file or
   // anywhere on GitHub: it goes in the Google Script's Script Properties (SECURITY.md).
   // Leave empty and the check is switched off.
-  turnstileSiteKey: "",
+  turnstileSiteKey: "0x4AAAAAAFDeZQfw4YCJOeVp",
 
   // Postcode checker: places we cover, with a centre point for distance checks.
   serviceAreas: [

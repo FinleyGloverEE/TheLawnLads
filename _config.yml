@@ -1,0 +1,11 @@
+# GitHub Pages settings.
+# The website itself is plain HTML and isn't changed by this file. It only stops
+# internal notes and the Google Apps Script source being published on
+# thelawnlads.co.uk. They stay in this repository, which is public, so still
+# never put passwords or keys in any of them. (Folders starting with "_" are
+# never published anyway.)
+exclude:
+  - SETUP.md
+  - SECURITY.md
+  - PRIVACY-NOTICE-DRAFT.md
+  - quote-form-google-script.gs

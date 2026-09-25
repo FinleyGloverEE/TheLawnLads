@@ -17,6 +17,11 @@ The site is now split into separate pages. Everything sits in **one flat folder,
 | `config.js` | **Your settings** (phone, WhatsApp, email, booking link, quote form address, areas) |
 | `quote-form-google-script.gs` | The quote-form receiver that runs in Google Apps Script. It doesn't need uploading to GitHub (see section 1) |
 | `site.css`, `site.js` | The look and the behaviour, shared by every page |
+| `*.woff2`, `FONT-LICENSE.txt` | The two fonts (Archivo Black and Atkinson Hyperlegible), served from your own site instead of Google, plus their free licence |
+| `_config.yml` | Tells GitHub Pages not to publish your notes (`SETUP.md`, `SECURITY.md`, the privacy draft) or the Google Script code |
+| `SECURITY.md` | Security review, limits, and what to do if the form is ever spammed. **Read section 1 of it after any security update** |
+| `PRIVACY-NOTICE-DRAFT.md` | A draft privacy page for you to finish (not published) |
+| `_security-tests/` | Automatic tests for the form and pages. Optional, never published |
 | `*.jpg` | The before/after photos |
 | `sitemap.xml`, `robots.txt` | Help Google find every page. Submit the sitemap in Google Search Console once the site is live |
 
@@ -24,7 +29,7 @@ The old `before.jpg` and `after.jpg` from the first version aren't used any more
 
 **Links use `.html` names** (e.g. `services.html`), so they work the same on Vercel, Cloudflare Pages and GitHub Pages without any extra setup. If you're on Cloudflare Pages, it will quietly redirect `/services.html` to `/services`. That's fine.
 
-**The header and footer are copied onto every page.** If you add a page or rename a menu item, change it on all seven pages.
+**The header and footer are copied onto every page.** If you add a page or rename a menu item, change it on all seven pages. For a new page, copy the whole `<head>` from an existing one: it includes the security policy that decides which outside services the page may use (see SECURITY.md section 7 before adding any new service, like analytics or a map).
 
 ---
 
@@ -66,7 +71,8 @@ If an email ever goes missing, the request is still in the Sheet. The form also 
 - The notification emails come from your Google account, so the sender will be your Gmail. Replies go to the customer automatically.
 - Free Google accounts can send about 100 of these emails a day, which is far more than you'll need.
 - Photos are shrunk on the customer's phone before sending (to about 1600px, usually 200–600KB each), so uploads are quick on mobile data.
-- A hidden "honeypot" field catches spam bots, and there's a limit of 30 requests an hour so nobody can fill your Drive. You can change both at the top of the script.
+- Spam protection: a hidden "honeypot" field, a check that the form wasn't filled in by a bot in under 3 seconds, a limit of 30 requests an hour overall and 3 an hour from the same email or phone, and a 100MB-a-day cap on photos so nobody can fill your Google storage. Anything that looks automated goes into the Sheet marked "Check: possible spam", with no email. You get a warning email if a limit is hit. The numbers are at the top of the script, and SECURITY.md explains each one.
+- If you change the choices in the "What do you need?" list or the lawn sizes in `quote.html`, make the same change in `SERVICES` / `LAWN_SIZES` at the top of the script.
 - Customers don't get an automatic confirmation email. They see the thank-you message on screen instead. That's easy to add to the script later if you want it.
 
 ---

@@ -208,7 +208,11 @@
     if (C.quoteEndpoint) form.action = C.quoteEndpoint;
 
     var errors = {
-      name: function (v) { return v.trim().length >= 2 ? "" : "Please add your name."; },
+      name: function (v) {
+        v = v.trim();
+        if (v.length < 2) return "Please add your name.";
+        return /[<>]|https?:|www\.|\/\//i.test(v) ? "Please add your name without links or < > symbols." : "";
+      },
       phone: function (v) {
         var d = v.replace(/[\s\-().]/g, "");
         if (!d) return "Please add a phone number so I can reach you.";
@@ -216,7 +220,8 @@
       },
       email: function (v) {
         if (!v.trim()) return "Please add your email.";
-        return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? "" : "That email address doesn't look quite right.";
+        // Same rule as the Google Script: one plain address, nothing that could add extra recipients
+        return /^[^\s@<>()\[\]",;:\\]+@[^\s@<>()\[\]",;:\\]+\.[^\s@<>()\[\]",;:\\]{2,}$/.test(v.trim()) ? "" : "That email address doesn't look quite right.";
       },
       postcode: function (v) {
         if (!v.trim()) return "Please add your postcode.";
@@ -280,16 +285,17 @@
             var ctx = canvas.getContext("2d");
             ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
             ctx.drawImage(img, 0, 0, w, h);
+            // Always send the re-drawn copy: it drops hidden data (like GPS location) and anything that isn't picture
             canvas.toBlob(function (blob) {
               URL.revokeObjectURL(url);
-              if (!blob || blob.size >= file.size) { resolve(file); return; }
+              if (!blob) { resolve(file); return; }
               var name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
               try { resolve(new File([blob], name, { type: "image/jpeg" })); }
               catch (e) { blob.name = name; resolve(blob); }
             }, "image/jpeg", 0.82);
           } catch (e) { URL.revokeObjectURL(url); resolve(file); }
         };
-        img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+        img.onerror = function () { URL.revokeObjectURL(url); resolve(null); };   // not a picture the browser can read
         img.src = url;
       });
     };
@@ -322,7 +328,15 @@
         var typeOk = OK_TYPES.indexOf(f.type) !== -1 || /\.(jpe?g|png|webp)$/i.test(f.name);
         if (!typeOk) { msgs.push(f.name + " isn't a JPG, PNG or WEBP."); return; }
         if (f.size > MAX_BYTES) { msgs.push(f.name + " is over 10MB — try a smaller one."); return; }
-        photos.push({ id: nextId++, original: f, ready: shrink(f), url: URL.createObjectURL(f) });
+        var entry = { id: nextId++, original: f, ready: shrink(f), url: URL.createObjectURL(f) };
+        entry.ready.then(function (out) {
+          if (out) return;
+          URL.revokeObjectURL(entry.url);
+          photos = photos.filter(function (x) { return x.id !== entry.id; });
+          renderThumbs();
+          photoErr.textContent = (photoErr.textContent ? photoErr.textContent + " " : "") + f.name + " couldn't be read as a photo — try a JPG instead.";
+        });
+        photos.push(entry);
       });
       photoErr.textContent = msgs.filter(function (m, i, a) { return a.indexOf(m) === i; }).join(" ");
       renderThumbs();
@@ -386,7 +400,7 @@
       var sizePicked = form.querySelector('[name="lawn_size"]:checked');
 
       Promise.all([lookupPostcode(pc), Promise.all(photos.map(function (p) { return p.ready; }))]).then(function (out) {
-        var area = out[0], files = out[1];
+        var area = out[0], files = out[1].filter(Boolean);
         var total = files.reduce(function (sum, f) { return sum + f.size; }, 0);
         if (total > 12 * 1024 * 1024) {
           throw new Error("TOO_BIG");
@@ -402,8 +416,9 @@
             service: $("#q-service").value,
             lawn_size: sizePicked ? sizePicked.value : "",
             description: $("#q-desc").value.trim(),
-            page: location.href.split("?")[0],
+            page: location.origin + location.pathname,
             _honey: $("#hp-honey").value,
+            _elapsed: window.performance && performance.now ? Math.round(performance.now()) : null,   // time on page; bots are instant
             photos: files.map(function (f, i) {
               return { name: f.name || ("photo-" + (i + 1) + ".jpg"), type: f.type || "image/jpeg", data: encoded[i] };
             })

@@ -2,6 +2,9 @@
 <html lang="en-GB">
 <head>
 <meta charset="UTF-8">
+<!-- Security policy: which sites this page may load from or send to. See SECURITY.md before adding any new service. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://api.postcodes.io https://script.google.com https://script.googleusercontent.com; form-action 'self' https://script.google.com https://script.googleusercontent.com; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; manifest-src 'self'; upgrade-insecure-requests">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Free Quote | The Lawn Lads</title>
 <meta name="description" content="Send a few photos of your garden and get a free, no-obligation quote for lawn mowing, overgrown grass, hedges or a garden tidy-up in Hinckley.">
@@ -18,9 +21,6 @@
 <meta property="og:url" content="https://thelawnlads.co.uk/quote.html">
 <meta property="og:image" content="https://thelawnlads.co.uk/border-1-after.jpg">
 <meta property="og:locale" content="en_GB">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;display=swap">
 <link rel="stylesheet" href="site.css">
 <link rel="preconnect" href="https://api.postcodes.io" crossorigin>
 </head>
@@ -160,7 +160,7 @@
 
           <button class="btn btn-primary btn-block" type="submit" id="q-submit">Send my quote request</button>
           <p class="form-status" id="q-status" role="status" aria-live="polite"></p>
-          <p class="form-foot">I'll only use your details to reply about your garden. No spam, no mailing lists.</p>
+          <p class="form-foot">I'll only use your details to reply about your garden. No spam, no mailing lists. Your request and photos are saved in The Lawn Lads' Google account (Sheets and Drive) and emailed to our business inbox. Postcodes are checked with postcodes.io.</p>
         </form>
       </div>
     </div>

@@ -7,10 +7,15 @@
  *   3. Saves any photos into a Google Drive folder ("Lawn Lads quote photos")
  *   4. Emails you the details with the photos attached
  *
+ * It also keeps an eye on the live website every hour (see "site monitor" near
+ * the bottom) and emails you if your phone, WhatsApp, email or the quote form's
+ * destination ever changes.
+ *
  * Even if the email ever goes missing, the request is still in the Sheet.
  *
- * Setup steps are in SETUP.md (section 1). Security notes are in SECURITY.md.
- * The only line you normally change is NOTIFY_EMAIL below.
+ * Setup steps are in SECURITY.md (section 1). The only line you normally change
+ * is NOTIFY_EMAIL below. Private keys go in Project Settings -> Script Properties,
+ * never in this file.
  *
  * Everything sent to this script comes from the public internet, so none of it
  * is trusted: every field is re-checked here even though the website checks it too.
@@ -27,7 +32,11 @@ var CONFIG = {
   MAX_PER_PERSON_PER_HOUR: 3,                 // from the same email address or phone number
   MAX_PHOTO_MB_PER_DAY: 100,                  // stops anyone filling your Google storage (which Gmail shares)
   EMAIL_RESERVE: 5,                           // emails kept back each day for the warning emails below
-  MIN_FILL_SECONDS: 3                         // nobody fills the form in faster than this; bots do
+  MIN_FILL_SECONDS: 3,                        // nobody fills the form in faster than this; bots do
+  MAX_BOT_CHECKS_PER_HOUR: 600,               // questions to Cloudflare per hour (Google allows 20,000 a day in total)
+  MAX_UNCHECKED_PER_HOUR: 20,                 // quotes kept, without photos or email, when the bot check can't run
+  SITE_URL: 'https://thelawnlads.co.uk/',
+  SITE_HOSTNAMES: ['thelawnlads.co.uk', 'www.thelawnlads.co.uk']
 };
 
 // These must match the choices in quote.html. A value that isn't listed is still
@@ -45,7 +54,9 @@ var MESSAGES = {
   tooBig: 'That was too much to send in one go — try fewer photos.',
   busy: 'We\'re getting a lot of requests right now — please try again in a little while.',
   person: 'We\'ve already had a few requests from you in the last hour, so we\'ll be in touch soon.',
-  invalid: 'Some details need checking:'
+  invalid: 'Some details need checking:',
+  robot: 'We couldn\'t confirm you\'re not a robot. Please press Send again.',
+  robotNoScript: 'Sorry, this form needs JavaScript switched on so it can check you\'re not a robot. You can WhatsApp or call us instead (details are on the website).'
 };
 
 function doGet() {
@@ -79,6 +90,19 @@ function doPost(e) {
       return reply_(fromBrowserScript, false, MESSAGES.invalid + ' ' + problems.join(', ') + '.');
     }
 
+    // Someone who has already sent a few this hour is turned away before anything costly happens
+    if (personOverLimit_(q)) {
+      log_('rejected', 'per-person limit');
+      return reply_(fromBrowserScript, false, MESSAGES.person);
+    }
+
+    // Bot check (Cloudflare Turnstile). Does nothing until TURNSTILE_SECRET is set (SECURITY.md).
+    var human = checkHuman_(data._turnstile);
+    if (human.mode === 'enforce' && human.result === 'fail') {
+      log_('rejected', 'bot check failed: ' + human.detail);
+      return reply_(fromBrowserScript, false, fromBrowserScript ? MESSAGES.robot : MESSAGES.robotNoScript, 'robot');
+    }
+
     lock = LockService.getScriptLock();
     if (!lock.tryLock(20000)) {
       lock = null;
@@ -86,6 +110,23 @@ function doPost(e) {
       return reply_(fromBrowserScript, false, MESSAGES.busy);
     }
     tidyCounters_();
+
+    // Cloudflare couldn't be asked. Keep the quote (no photos, no email) so a real customer isn't
+    // lost, but only a few an hour, and never from the allowance that real, checked quotes use.
+    if (human.mode === 'enforce' && human.result === 'unavailable') {
+      if (!underUncheckedLimit_()) {
+        log_('rejected', 'bot check unavailable and unchecked allowance used');
+        return reply_(fromBrowserScript, false, MESSAGES.busy);
+      }
+      appendRow_(q, [], 'Check: bot check unavailable');
+      log_('flagged', 'bot check unavailable: ' + human.detail);
+      alertOnce_('bot-check', 'the bot check isn\'t working',
+        'The quote form couldn\'t check a request with Cloudflare (' + human.detail + '). Requests are being saved in the Quotes sheet ' +
+        'marked "Check: bot check unavailable", without photos or an email. Look through them today.\n\n' +
+        (/secret/.test(human.detail) ? 'The TURNSTILE_SECRET in Script Properties looks wrong: copy it again from Cloudflare.\n\n' : '') +
+        'If you get lots of these, someone may be flooding the form. See SECURITY.md.');
+      return reply_(fromBrowserScript, true);
+    }
 
     var limited = checkLimits_(q);
     if (limited === 'hourly') {
@@ -108,6 +149,7 @@ function doPost(e) {
       return reply_(fromBrowserScript, true);
     }
 
+    if (human.mode === 'test') q.botCheck = human.result === 'pass' ? 'passed' : human.result + (human.detail ? ' (' + human.detail + ')' : '');
     var photos = savePhotos_(data.photos, q);
     var row = appendRow_(q, photos.saved.map(function (p) { return p.url; }).concat(photos.notes), 'New');
     // The request is safely in the Sheet now. If the email fails, flag it there
@@ -239,6 +281,34 @@ function phoneDigits_(phone) {
   return phone.replace(/[^\d+]/g, '').replace(/^\+44/, '0').replace(/^0044/, '0');
 }
 
+// The same inbox written differently (Sam.Taylor+1@gmail.com, samtaylor@gmail.com) counts as one person.
+function emailIdentity_(email) {
+  var parts = email.toLowerCase().split('@');
+  var local = parts[0].split('+')[0], domain = parts[1] || '';
+  if (domain === 'googlemail.com') domain = 'gmail.com';
+  if (domain === 'gmail.com') local = local.replace(/\./g, '');
+  return local + '@' + domain;
+}
+
+function personKeys_(q) {
+  return [personKey_('email', emailIdentity_(q.email)), personKey_('phone', phoneDigits_(q.phone))];
+}
+
+// Quick look (nothing counted) so repeat senders don't cost a bot check.
+function personOverLimit_(q) {
+  var cache = CacheService.getScriptCache();
+  return personKeys_(q).some(function (k) { return Number(cache.get(k) || 0) >= CONFIG.MAX_PER_PERSON_PER_HOUR; });
+}
+
+function underUncheckedLimit_() {
+  var cache = CacheService.getScriptCache();
+  var key = 'unchecked-' + hourStamp_();
+  var n = Number(cache.get(key) || 0);
+  if (n >= CONFIG.MAX_UNCHECKED_PER_HOUR) return false;
+  cache.put(key, String(n + 1), 3700);
+  return true;
+}
+
 // Returns '' if the request is within the limits (and counts it), or which limit it hit.
 function checkLimits_(q) {
   var cache = CacheService.getScriptCache();
@@ -246,7 +316,7 @@ function checkLimits_(q) {
   var hourCount = Number(cache.get(hourKey) || 0);
   if (hourCount >= CONFIG.MAX_PER_HOUR) return 'hourly';
 
-  var keys = [personKey_('email', q.email.toLowerCase()), personKey_('phone', phoneDigits_(q.phone))];
+  var keys = personKeys_(q);
   var counts = keys.map(function (k) { return Number(cache.get(k) || 0); });
   if (Math.max(counts[0], counts[1]) >= CONFIG.MAX_PER_PERSON_PER_HOUR) return 'person';
 
@@ -290,6 +360,57 @@ function alertOnce_(what, subject, body) {
   } catch (err) {
     logError_('alert', err);
   }
+}
+
+/* ---------------- bot check (Cloudflare Turnstile) ---------------- */
+
+// Off until you add TURNSTILE_SECRET in Project Settings -> Script Properties. Then it runs in
+// "test" mode (checks and reports in each email, blocks nothing) until you also add
+// TURNSTILE_ENFORCE = yes. See SECURITY.md for the steps.
+function botCheckMode_() {
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('TURNSTILE_SECRET')) return 'off';
+  return props.getProperty('TURNSTILE_ENFORCE') === 'yes' ? 'enforce' : 'test';
+}
+
+// result: 'pass', 'fail' (the visitor didn't pass), or 'unavailable' (couldn't ask Cloudflare)
+function checkHuman_(token) {
+  var mode = botCheckMode_();
+  if (mode === 'off') return { mode: mode, result: 'off', detail: '' };
+  token = typeof token === 'string' ? token : '';
+  if (!token) return { mode: mode, result: 'fail', detail: 'no token' };
+  if (token.length < 10 || token.length > 2048) return { mode: mode, result: 'fail', detail: 'malformed token' };
+
+  // Every check is a request to Cloudflare, and Google limits how many the script can make a day.
+  // Capping them per hour means fake tokens can't use up the whole day's allowance.
+  var cache = CacheService.getScriptCache();
+  var key = 'botchecks-' + hourStamp_();
+  var n = Number(cache.get(key) || 0);
+  if (n >= CONFIG.MAX_BOT_CHECKS_PER_HOUR) return { mode: mode, result: 'unavailable', detail: 'hourly check allowance used' };
+  cache.put(key, String(n + 1), 3700);
+
+  var res;
+  try {
+    res = UrlFetchApp.fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'post',
+      payload: { secret: PropertiesService.getScriptProperties().getProperty('TURNSTILE_SECRET'), response: token },
+      muteHttpExceptions: true,
+      followRedirects: false
+    });
+  } catch (err) {
+    logError_('bot check', err);
+    return { mode: mode, result: 'unavailable', detail: 'could not reach Cloudflare' };
+  }
+  if (res.getResponseCode() !== 200) return { mode: mode, result: 'unavailable', detail: 'Cloudflare replied ' + res.getResponseCode() };
+  var body;
+  try { body = JSON.parse(res.getContentText()); } catch (err) { return { mode: mode, result: 'unavailable', detail: 'unreadable reply from Cloudflare' }; }
+  var codes = (body['error-codes'] || []).join(' ');
+  // A wrong or missing secret is your setup, not the visitor, so it doesn't count as them failing.
+  if (/secret|internal-error/.test(codes)) return { mode: mode, result: 'unavailable', detail: 'Cloudflare says: ' + codes };
+  if (body.success !== true) return { mode: mode, result: 'fail', detail: codes || 'not passed' };
+  if (CONFIG.SITE_HOSTNAMES.indexOf(String(body.hostname)) === -1) return { mode: mode, result: 'fail', detail: 'solved on another website' };
+  if (body.action !== 'quote') return { mode: mode, result: 'fail', detail: 'token for a different form' };
+  return { mode: mode, result: 'pass', detail: '' };
 }
 
 /* ---------------- Sheet ---------------- */
@@ -416,6 +537,7 @@ function sendEmail_(q, photos) {
     ['Description', q.description || '—'],
     ['Photos', (saved.length ? saved.length + ' attached' : 'None') + (photos.notes.length ? '. ' + photos.notes.join(' ') : '')]
   ];
+  if (q.botCheck) rows.push(['Bot check (test mode)', q.botCheck]);
   var html =
     '<div style="font-family:Arial,sans-serif;font-size:15px;color:#211f16">' +
     '<h2 style="margin:0 0 12px">New quote request' + (outside ? ' <span style="color:#a8432a">(outside area)</span>' : '') + '</h2>' +
@@ -439,9 +561,9 @@ function sendEmail_(q, photos) {
 
 /* ---------------- replies and logs ---------------- */
 
-function reply_(isScript, ok, message) {
+function reply_(isScript, ok, message, code) {
   if (isScript) {
-    return ContentService.createTextOutput(JSON.stringify({ ok: ok, error: ok ? undefined : message }))
+    return ContentService.createTextOutput(JSON.stringify({ ok: ok, error: ok ? undefined : message, code: code }))
       .setMimeType(ContentService.MimeType.JSON);
   }
   // JavaScript was off in the visitor's browser: show a simple page
@@ -461,13 +583,154 @@ function logError_(where, err) {
   console.error(where + ': ' + String(err && err.name || 'Error') + ' ' + String(err && err.message || err).slice(0, 200));
 }
 
+/* ---------------- site monitor ---------------- */
+// Your GitHub account can change the website. This runs in your Google account instead, so if
+// someone got into GitHub (or took over the domain) and changed where customers' calls, messages
+// or quotes go, you'd get an email within about an hour, even if they covered their tracks there.
+// It only watches things that matter for that: the settings in config.js, the scripts, every link
+// that leaves the site (phone, WhatsApp, email, booking, forms, other websites) and the security
+// policy. Changing prices or wording doesn't set it off.
+
+var SITE_FILES = ['', 'services.html', 'our-work.html', 'quote.html', 'about.html', 'faq.html', 'contact.html', 'config.js', 'site.js'];
+var WATCHED_SETTINGS = {
+  whatsappNumber: 'WhatsApp number', phoneInternational: 'Phone number (dialled)', phoneDisplay: 'Phone number (shown)',
+  contactEmail: 'Email address', bookingUrl: 'Booking link', quoteEndpoint: 'Where quote requests are sent',
+  turnstileSiteKey: 'Bot check site key'
+};
+
+function hash_(text) {
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
+  return Utilities.base64EncodeWebSafe(digest).slice(0, 16);
+}
+
+function readSite_() {
+  var site = { settings: {}, scripts: {}, links: {}, policies: {}, inline: {}, problems: [] };
+  SITE_FILES.forEach(function (path) {
+    var name = path || 'home page', res;
+    try {
+      res = UrlFetchApp.fetch(CONFIG.SITE_URL + path, { muteHttpExceptions: true, followRedirects: false });
+    } catch (err) {
+      site.problems.push(name + ': could not connect');
+      return;
+    }
+    if (res.getResponseCode() !== 200) { site.problems.push(name + ': returned ' + res.getResponseCode()); return; }
+    var text = res.getContentText(), m;
+    if (/\.js$/.test(path)) {
+      site.scripts[path] = hash_(text);
+      if (path === 'config.js') {
+        var setting = /(\w+)\s*:\s*"([^"]*)"/g;
+        while ((m = setting.exec(text))) if (WATCHED_SETTINGS[m[1]]) site.settings[m[1]] = m[2];
+      }
+      return;
+    }
+    var attr = /\b(?:href|src|action)\s*=\s*"([^"]+)"/gi;
+    while ((m = attr.exec(text))) {
+      var url = m[1].replace(/&amp;/g, '&').split('#')[0].split('?')[0];
+      if (/^(https?:|tel:|mailto:|\/\/)/i.test(url)) site.links[url] = 1;
+    }
+    var csp = text.match(/http-equiv="Content-Security-Policy"\s+content="([^"]*)"/i);
+    site.policies[csp ? csp[1] : '(no security policy on ' + name + ')'] = 1;
+    var script = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+    while ((m = script.exec(text))) {
+      if (/\bsrc\s*=/i.test(m[1]) || /application\/ld\+json/i.test(m[1])) continue;   // external files are checked by address; ld+json is data
+      site.inline[hash_(m[2])] = 1;
+    }
+  });
+  return {
+    settings: site.settings, scripts: site.scripts, links: Object.keys(site.links).sort(),
+    policies: Object.keys(site.policies).sort(), inline: Object.keys(site.inline).sort(), problems: site.problems
+  };
+}
+
+function describeChanges_(was, now) {
+  var out = [];
+  Object.keys(WATCHED_SETTINGS).forEach(function (k) {
+    if ((was.settings[k] || '') !== (now.settings[k] || '')) {
+      out.push(WATCHED_SETTINGS[k] + ' changed from "' + (was.settings[k] || '') + '" to "' + (now.settings[k] || '') + '"');
+    }
+  });
+  ['config.js', 'site.js'].forEach(function (f) {
+    if (was.scripts[f] !== now.scripts[f]) out.push(f + ' has been changed');
+  });
+  var diff = function (label, a, b) {
+    b.forEach(function (x) { if (a.indexOf(x) === -1) out.push('New ' + label + ': ' + x); });
+    a.forEach(function (x) { if (b.indexOf(x) === -1) out.push('Removed ' + label + ': ' + x); });
+  };
+  diff('link or address', was.links, now.links);
+  if (was.policies.join('\n') !== now.policies.join('\n')) out.push('The security policy (Content-Security-Policy) has changed on at least one page');
+  if (was.inline.join() !== now.inline.join()) out.push('A script written directly into a page has been added or changed');
+  return out;
+}
+
+function summary_(site) {
+  return Object.keys(WATCHED_SETTINGS).map(function (k) { return WATCHED_SETTINGS[k] + ': ' + (site.settings[k] || '(empty)'); }).join('\n');
+}
+
 /**
- * Optional: run this once from the editor (select "testSetup" and press Run)
- * to create the Quotes tab and check the email arrives, before going live.
+ * Run this after YOU change the website (so the monitor learns the new version), and once
+ * when setting up. Check the list it prints in the Execution log is right before trusting it.
+ */
+function approveCurrentSite() {
+  var site = readSite_();
+  if (site.problems.length) throw new Error('Could not read the whole website, so nothing was approved: ' + site.problems.join('; '));
+  PropertiesService.getScriptProperties().setProperty('SITE_APPROVED', JSON.stringify(site));
+  PropertiesService.getScriptProperties().deleteProperty('SITE_CHECK_FAILS');
+  console.log('Website approved. These are the details customers see. Check every one is yours:\n' + summary_(site));
+}
+
+/** Run once: checks the website every hour from now on (and approves how it looks right now). */
+function setUpSiteMonitor() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'checkSite') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('checkSite').timeBased().everyHours(1).create();
+  approveCurrentSite();
+}
+
+/** Runs every hour by itself once setUpSiteMonitor has been run. */
+function checkSite() {
+  var props = PropertiesService.getScriptProperties();
+  var approved = props.getProperty('SITE_APPROVED');
+  if (!approved) { log_('site check', 'not set up'); return; }
+  tidyCounters_();
+  var now = readSite_();
+  if (now.problems.length) {
+    // One blip isn't worth an email; three checks in a row is.
+    var fails = Number(props.getProperty('SITE_CHECK_FAILS') || 0) + 1;
+    props.setProperty('SITE_CHECK_FAILS', String(fails));
+    log_('site check', 'could not read site (' + fails + ' in a row)');
+    if (fails >= 3) {
+      alertOnce_('site-down', 'the website check keeps failing',
+        'The hourly check couldn\'t read thelawnlads.co.uk properly 3 times in a row:\n\n' + now.problems.join('\n') +
+        '\n\nOpen the website on your phone. If it\'s down or looks wrong, check GitHub (repository Settings -> Pages) and your domain.');
+    }
+    return;
+  }
+  props.deleteProperty('SITE_CHECK_FAILS');
+  var changes = describeChanges_(JSON.parse(approved), now);
+  if (!changes.length) { log_('site check', 'unchanged'); return; }
+  log_('site check', changes.length + ' change(s)');
+  alertOnce_('site-' + hash_(changes.join('\n')).slice(0, 10), 'THE WEBSITE HAS CHANGED: check it was you',
+    'These changed on thelawnlads.co.uk since you last approved it:\n\n- ' + changes.join('\n- ') + '\n\n' +
+    'If YOU made these changes: open the quote form script, choose approveCurrentSite next to Run, and press Run.\n\n' +
+    'If you did NOT:\n1. Change your GitHub password and check two-step login is on.\n' +
+    '2. In the repository, look at the latest commits and undo any you didn\'t make.\n' +
+    '3. Open the website and check the phone number, WhatsApp and email are yours.\n\n' +
+    'You\'ll get this once a day until it\'s approved or put back.');
+}
+
+/**
+ * Run this from the editor (select "testSetup" and press Run) after pasting in new code.
+ * The first run asks Google for permission. It creates the Quotes tab if needed and emails
+ * you a short status report.
  */
 function testSetup() {
   getSheet_();
+  var mode = botCheckMode_();
+  var monitor = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'checkSite'; });
   MailApp.sendEmail(CONFIG.NOTIFY_EMAIL, 'Lawn Lads quote form — test email',
     'If you can read this, quote emails will reach this inbox. You can delete this email.\n\n' +
-    'Emails left today: ' + MailApp.getRemainingDailyQuota());
+    'Emails left today: ' + MailApp.getRemainingDailyQuota() + '\n' +
+    'Bot check: ' + { off: 'OFF (not set up yet, see SECURITY.md)', test: 'TEST MODE (checks and reports in each quote email, blocks nothing)', enforce: 'ON' }[mode] + '\n' +
+    'Website monitor: ' + (monitor ? 'ON (checks every hour)' : 'OFF (run setUpSiteMonitor)'));
 }

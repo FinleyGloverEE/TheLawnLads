@@ -17,6 +17,7 @@ Our legal basis is that you've asked us for a quote and we need these details to
 **Where your information goes.**
 - It's saved in The Lawn Lads' Google account (Google Sheets and Google Drive) and emailed to our business inbox (Microsoft 365). Google and Microsoft store it for us.
 - If you use the postcode checker, or type your postcode into the quote form, your browser looks the postcode up with **postcodes.io** to see whether we cover your area. Only the postcode is sent.
+- To keep spam bots out, the quote form uses **Cloudflare Turnstile**, which checks information about your browser and connection (including your IP address) when you open the quote page. [Only include this line once the bot check is switched on in config.js.]
 - If you choose to contact us on **WhatsApp** or book through **Cal.com**, those services handle your information under their own privacy policies.
 
 The website doesn't use cookies, analytics or any tracking.

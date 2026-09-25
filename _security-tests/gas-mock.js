@@ -15,7 +15,10 @@ function load(scriptPath, opts) {
   opts = opts || {};
   const state = {
     rows: [], files: [], mails: [], logs: [], cache: new Map(), props: new Map(),
-    mailQuota: opts.mailQuota == null ? 100 : opts.mailQuota, folders: 0, now: opts.now || new Date("2026-09-25T10:15:00Z")
+    mailQuota: opts.mailQuota == null ? 100 : opts.mailQuota, folders: 0, now: opts.now || new Date("2026-09-25T10:15:00Z"),
+    fetches: [], triggers: [],
+    // Replace to simulate Cloudflare / the live website: (url, options) => ({ code, body }) or throw
+    fetch: opts.fetch || (() => { throw new Error("no network in tests"); })
   };
   const sheet = {
     appendRow(r) { state.rows.push(r.slice()); },
@@ -65,8 +68,25 @@ function load(scriptPath, opts) {
       },
       getRemainingDailyQuota() { return state.mailQuota; }
     },
+    UrlFetchApp: {
+      fetch(url, options) {
+        state.fetches.push({ url, options: options || {} });
+        const r = state.fetch(url, options || {});
+        return { getResponseCode: () => r.code, getContentText: () => r.body };
+      }
+    },
+    ScriptApp: {
+      getProjectTriggers() { return state.triggers.slice(); },
+      deleteTrigger(t) { state.triggers = state.triggers.filter((x) => x !== t); },
+      newTrigger(fn) {
+        const t = { fn, getHandlerFunction: () => fn };
+        const b = { timeBased: () => b, everyHours: (h) => { t.hours = h; return b; }, create: () => { state.triggers.push(t); return t; } };
+        return b;
+      }
+    },
     Utilities: {
       DigestAlgorithm: { SHA_256: "sha256" },
+      Charset: { UTF_8: "utf8" },
       formatDate(d, _tz, fmt) {
         const p = (n) => String(n).padStart(2, "0");
         return fmt.replace("yyyy", d.getUTCFullYear()).replace("MM", p(d.getUTCMonth() + 1)).replace("dd", p(d.getUTCDate()))

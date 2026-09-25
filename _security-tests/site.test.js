@@ -252,6 +252,118 @@ async function main() {
     check("script in ?postcode= URL is inert", problems.length === 0 && (await page.inputValue("#q-postcode")).indexOf("<script>") !== -1, problems.join(" | "));
     await context.close();
   }
+  // ---- Bot check (Cloudflare Turnstile) switched on in config.js ----
+  // Fake loader following Cloudflare's client API (render / reset, callback with a token), which
+  // adds a real cross-origin iframe so the quote page's CSP is exercised the way the widget would.
+  const FAKE_TURNSTILE = `(function () {
+    var n = 0; window.__ts = { renders: [], resets: 0 };
+    window.turnstile = {
+      render: function (el, o) {
+        window.__ts.renders.push({ sitekey: o.sitekey, action: o.action, appearance: o.appearance });
+        var f = document.createElement("iframe");
+        f.src = "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/fake"; f.width = 300; f.height = 65; f.style.border = "0";
+        el.appendChild(f);
+        window.__ts.issue = function () { setTimeout(function () { o.callback("GOOD-" + (++n) + "-token-xxxxxxxx"); }, 300); };
+        window.__ts.issue();
+        return "w1";
+      },
+      reset: function () { window.__ts.resets++; window.__ts.issue(); },
+      getResponse: function () { return ""; }
+    };
+  })();`;
+  const withBotCheck = async (url, how) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 900 } });
+    await setup(context, state);
+    await context.route(base + "config.js", (r) => r.fulfill({ status: 200, contentType: "text/javascript",
+      body: fs.readFileSync(path.join(ROOT, "config.js"), "utf8").replace('turnstileSiteKey: ""', 'turnstileSiteKey: "0x4AAAAAAATESTSITEKEY"') }));
+    const cf = [];
+    await context.route("https://challenges.cloudflare.com/**", (r) => {
+      cf.push(r.request().url());
+      if (how === "blocked") return r.abort();
+      if (/api\.js/.test(r.request().url())) return r.fulfill({ status: 200, contentType: "text/javascript", body: FAKE_TURNSTILE });
+      return r.fulfill({ status: 200, contentType: "text/html", body: "<p>widget</p>" });
+    });
+    await context.addInitScript(() => { window.__csp = []; document.addEventListener("securitypolicyviolation", (e) => window.__csp.push(e.violatedDirective + " " + e.blockedURI)); });
+    const page = await context.newPage(); const problems = []; watch(page, problems);
+    await page.goto(base + url);
+    return { context, page, problems, cf };
+  };
+
+  const botRendered = (page) => page.waitForFunction(() => window.__ts && window.__ts.renders.length === 1, null, { timeout: 8000 }).then(() => true, () => false);
+
+  console.log("Bot check (Cloudflare Turnstile) switched on");
+  {
+    const { context, page, problems, cf } = await withBotCheck("quote.html");
+    const shown = await botRendered(page);
+    const r = shown ? await page.evaluate(() => window.__ts.renders[0]) : {};
+    check("widget loads on the quote page with the site key, action 'quote', invisible mode", shown && r.sitekey === "0x4AAAAAAATESTSITEKEY" && r.action === "quote" && r.appearance === "interaction-only",
+      shown ? JSON.stringify(r) : "never rendered. CSP: " + (await page.evaluate(() => window.__csp)).join(", "));
+    check("loader requested with explicit rendering", cf.some((u) => u === "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"), cf.join(", "));
+    check("privacy note about Turnstile shown", await page.isVisible("[data-bot-note]"));
+    state.posts = [];
+    await fillValid(page);
+    await page.waitForTimeout(3200);
+    await page.click("#q-submit");
+    await page.waitForSelector("#quote-success:not([hidden])", { timeout: 15000 });
+    const sent = JSON.parse(state.posts[0].body);
+    check("token sent with the quote", /^GOOD-1-/.test(sent._turnstile), sent._turnstile);
+    check("token thrown away after use", (await page.evaluate(() => window.__ts && window.__ts.resets)) === 1);
+    const csp = await page.evaluate(() => window.__csp);
+    check("Turnstile script and iframe allowed by the quote page's CSP, no errors", csp.length === 0 && problems.length === 0, csp.concat(problems).join(" | "));
+    {
+      const gas = require("./gas-mock.js");
+      const { g, state: gs } = gas.load(path.join(ROOT, "quote-form-google-script.gs"));
+      gs.props.set("TURNSTILE_SECRET", "secret"); gs.props.set("TURNSTILE_ENFORCE", "yes");
+      gs.fetch = (u, o) => ({ code: 200, body: JSON.stringify(/^GOOD-/.test(o.payload.response) ? { success: true, hostname: "thelawnlads.co.uk", action: "quote" } : { success: false, "error-codes": ["invalid-input-response"] }) });
+      const reply = gas.parse(g.doPost(gas.jsonEvent(Object.assign({}, sent, { page: "https://thelawnlads.co.uk/quote.html" }))));
+      check("end to end: enforced script accepts the browser's real submission and token", reply.ok === true && gs.rows[1] && gs.rows[1][1] === "New" && gs.fetches.length === 1, JSON.stringify(reply));
+    }
+    await context.close();
+  }
+  {
+    const { context, page, problems } = await withBotCheck("quote.html");
+    await botRendered(page);
+    state.posts = []; state.endpointReply = { ok: false, error: "We couldn't confirm you're not a robot. Please press Send again.", code: "robot" };
+    await fillValid(page);
+    await page.click("#q-submit");
+    await page.waitForFunction(() => document.querySelector("#q-status").textContent.length > 0);
+    const msg = await page.textContent("#q-status");
+    check("robot rejection: asks to press Send again, WhatsApp/phone as backup", /press Send again/.test(msg) && /If it keeps happening/.test(msg), msg);
+    state.endpointReply = { ok: true };
+    await page.waitForTimeout(500);
+    await page.click("#q-submit");
+    await page.waitForSelector("#quote-success:not([hidden])", { timeout: 15000 });
+    const tokens = state.posts.map((x) => JSON.parse(x.body)._turnstile);
+    check("retry sends a fresh token, not the used one", tokens.length === 2 && tokens[0] !== tokens[1] && /^GOOD-2-/.test(tokens[1]), tokens.join(" / "));
+    check("no errors", problems.length === 0, problems.join(" | "));
+    await context.close();
+  }
+  {
+    const { context, page, problems } = await withBotCheck("quote.html", "blocked");
+    state.posts = [];
+    await fillValid(page);
+    await page.click("#q-submit");
+    await page.waitForSelector("#quote-success:not([hidden])", { timeout: 15000 });
+    const sent = JSON.parse(state.posts[0].body);
+    const real = problems.filter((x) => !/Failed to load resource/.test(x));
+    check("Cloudflare can't load: form still sends (empty token), the script decides", sent._turnstile === "" && real.length === 0, JSON.stringify(sent._turnstile) + " " + real.join(" | "));
+    await context.close();
+  }
+  {
+    const { context, page, cf } = await withBotCheck("index.html");
+    await page.waitForTimeout(500);
+    check("other pages never load Turnstile", cf.length === 0, cf.join(", "));
+    await context.close();
+  }
+  {
+    const { context, page } = await newQuotePage();
+    state.posts = [];
+    await fillValid(page); await page.click("#q-submit");
+    await page.waitForSelector("#quote-success:not([hidden])", { timeout: 15000 });
+    check("site key empty (default): no token field sent, note stays hidden", !("_turnstile" in JSON.parse(state.posts[0].body)) && !(await page.isVisible("[data-bot-note]")));
+    await context.close();
+  }
+
   {
     // Visitor with JavaScript switched off: the plain HTML form must still post (CSP form-action).
     const context = await browser.newContext({ javaScriptEnabled: false });

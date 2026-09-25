@@ -8,18 +8,56 @@ No website is ever "100% secure". This review fixed what could be fixed in the c
 
 ## 1. Do this first: put the changes live
 
-The website changes go live when this branch is merged into `main` (GitHub Pages rebuilds in a couple of minutes). **The quote form's Google Apps Script does not update itself.** Until you do these steps, the old, weaker script is still running:
+The **website** part is already live (published to `main`, and GitHub Pages rebuilds in a few minutes). The **Google Apps Script doesn't update itself**, and until you do step B the old, weaker script is still what receives quotes.
 
+### A. Check the website updated (2 minutes)
+Wait about 10 minutes, then open each of these on your phone. **All three should show the "page not found" page:**
+- https://thelawnlads.co.uk/SETUP.html
+- https://thelawnlads.co.uk/SETUP.md
+- https://thelawnlads.co.uk/quote-form-google-script.gs
+
+### B. Update the Google Script (10 minutes, in this order)
 1. Open your **Lawn Lads quotes** Google Sheet → **Extensions → Apps Script**.
 2. Select all the code in the editor and delete it. Paste in the whole of the new `quote-form-google-script.gs`. Click **💾 Save**.
-3. **Deploy → Manage deployments → ✏️ (Edit) → Version: New version → Deploy.** This keeps the same web address, so `config.js` doesn't change.
-   - Google shouldn't ask for new permissions, because the script uses the same Google services as before. If it does ask, check that the list is still only Sheets, Drive and "send email as you" before allowing it.
-4. Pick `testSetup` next to ▶ Run and run it. The test email now also tells you how many emails you have left today.
-5. From your phone, send one real test quote with a photo. Check you get the email, the Sheet row and the photo in Drive. Then set that row's Status to "Test".
-6. After GitHub Pages has rebuilt, open each of these. **All three should show the 404 page:**
-   - https://thelawnlads.co.uk/SETUP.html
-   - https://thelawnlads.co.uk/SETUP.md
-   - https://thelawnlads.co.uk/quote-form-google-script.gs
+3. **Before deploying**, pick `testSetup` next to ▶ Run and press Run. Google will ask for permission, and this time it asks for **two new things**. Both are expected:
+   - **"Connect to an external service"**, for the bot check (Cloudflare) and the website monitor (reading your own site).
+   - **"Allow this application to run when you are not present"**, for the hourly website check.
+   Only allow it if the list is Sheets, Drive, send email, those two, and nothing else. **Don't skip this:** if you deploy without allowing the new permissions, every quote fails.
+   The test email tells you the bot check is OFF and the website monitor is OFF. That's right for now.
+4. **Deploy → Manage deployments.** You'll see every web address this script has ever had.
+   - Click ✏️ on the one whose URL matches `quoteEndpoint` in `config.js`, then **Version: New version → Deploy**.
+   - **Archive every other deployment** in that list. Old ones keep running the old code, and anyone who has their address can use them.
+5. Pick `setUpSiteMonitor` and press Run. Open **Execution log** and read the list it prints: WhatsApp number, phone numbers, email, booking link and where quotes are sent. **Every one must be yours.** From now on the site is checked every hour (section 13).
+6. From your phone, send one real test quote with a photo. Check you get the email, the Sheet row and the photo in Drive. Then set that row's Status to "Test".
+
+### C. Switch on the bot check (15 minutes, can be done any day after B)
+This is what stops a script from switching your form off. It uses **Cloudflare Turnstile**, which is free and usually invisible to customers. Your domain doesn't need to move to Cloudflare. Do it in three stages so nothing breaks:
+1. **Get the keys.** Make a free account at cloudflare.com → **Turnstile** → **Add widget**.
+   - Name: `Lawn Lads quote form`
+   - Hostnames: `thelawnlads.co.uk` and `www.thelawnlads.co.uk`
+   - Widget mode: **Managed**
+   You get a **Site key** (public) and a **Secret key** (private: treat it like a password).
+2. **Website (widget on, nothing blocked yet).**
+   - In `config.js`, paste the **site key** between the quotes on `turnstileSiteKey: ""` and upload it to GitHub.
+   - About an hour later the website monitor will email you that the "Bot check site key" changed. That's you, so run `approveCurrentSite` in the script.
+3. **Script, test mode.**
+   - In Apps Script → ⚙️ **Project Settings → Script Properties → Add script property**: name `TURNSTILE_SECRET`, value = the **secret key**.
+   - Send a test quote from your phone *and* from a computer. Each email should say **"Bot check (test mode): passed"**. Test mode checks every quote and reports the result, but **blocks nothing**.
+   - If it says anything else, the email explains what's wrong: usually the site key or secret was pasted wrongly.
+4. **Script, switched on.**
+   - Once a few real quotes have all said "passed", add another Script Property: name `TURNSTILE_ENFORCE`, value `yes`.
+   - From then on, requests without a genuine Turnstile token are refused before they're saved or counted, so they can't use up your hourly limit or email allowance.
+   - **To switch it off in an emergency**, delete `TURNSTILE_ENFORCE`. That takes effect straight away (back to test mode), with no redeploy needed.
+
+The secret key only ever goes in Script Properties: **never** in `config.js`, this file, or anywhere on GitHub, because the repository is public.
+
+### D. Lock down your accounts
+Nothing in the code can stop someone who logs in as you. Whoever controls your GitHub account controls where every call, WhatsApp and quote goes.
+- **GitHub:** turn on two-step login (a passkey or an authenticator app, not SMS). Only ever merge a pull request **you** wrote. Anyone can open one on a public repo, and a "fix typo" PR can also quietly change `config.js`.
+- **Google** (the account that owns the Sheet and script): 2-Step Verification with a passkey or the Google prompt.
+- **Microsoft 365**, your **domain registrar** and **Cal.com**: two-step login on each.
+- **WhatsApp:** Settings → Account → **Two-step verification** (a PIN).
+- The website monitor (step B5) is your alarm if any of this fails.
 
 ---
 
@@ -89,7 +127,11 @@ Severity: **CRITICAL** (being exploited or trivially exploitable with serious ha
   - The 4th request from the same person is refused, even with the phone number written differently.
   - 12 maximum-size uploads stop at 100MB, and every quote is still saved.
   - A low email quota keeps the quote and warns you.
-- **What's left:** Apps Script can't see a visitor's IP address, so someone who changes the email and phone each time can still hit the 30/hour limit and block the form for up to an hour at a time. You'd get a warning email, and customers are told to WhatsApp or call. If it ever happens, see "If the form is attacked" in section 9. **Severity now: MEDIUM.**
+- **What's left:** Apps Script can't see a visitor's IP address, so without the bot check, a script that changes the email and phone each time can still use up the 30/hour limit and block the form. A later review showed this was cheap enough to rate HIGH. The fix is the Turnstile bot check (section 1C).
+  - **Once it's enforced**, requests without a real token are refused before they're saved or counted. Gmail `+alias`/dot tricks now count as one person.
+  - Checks with Cloudflare are capped at 600 an hour, so fake tokens can't use up Google's daily allowance of outside requests.
+  - If the check can't run, quotes are still saved (text only, up to 20 an hour) rather than turned away.
+  - **Still possible:** someone paying a CAPTCHA-solving service, or sending 600+ fake tokens every hour to push the form into "save only, no email" mode. Either costs them far more effort and sets off warning emails to you. The complete fix would be a gateway that can see IP addresses (for example a Cloudflare Worker in front of the script). It isn't needed unless that ever happens.
 
 ### MEDIUM-1: Uploaded "photos" were never checked to be photos
 - **Where:** `savePhotos_` in the script. The browser's `shrink()` sent the original file when it couldn't read it.
@@ -186,6 +228,9 @@ Severity: **CRITICAL** (being exploited or trivially exploitable with serious ha
 | `MAX_PHOTOS` | 3 | Photos per request (the website allows 3 too) |
 | `MAX_PHOTO_BYTES` | 5MB | Per photo after the browser shrinks it (usually 200–600KB) |
 | `MAX_REQUEST_BYTES` | 22MB | Whole request |
+| `MAX_BOT_CHECKS_PER_HOUR` | 600 | Checks with Cloudflare per hour. Keeps within Google's 20,000 outside requests a day, however many fake tokens arrive |
+| `MAX_UNCHECKED_PER_HOUR` | 20 | If the bot check can't run, quotes are still saved (text only, no email) up to this many an hour |
+| Per-person matching | | `Sam.Taylor+1@gmail.com` and `samtaylor@gmail.com` count as the same person (Gmail ignores dots and `+…`) |
 | Allowed photo types | JPG, PNG, WEBP | Checked from the file's bytes. The browser also turns every photo into a ≤1600px JPEG |
 | Field lengths | name 80, phone 30, email 120, description 1500 | Same limits as the form's `maxlength` |
 
@@ -202,7 +247,10 @@ The website's own limits (in `site.js`): 3 photos, 10MB each before shrinking, 1
 | Phone, WhatsApp number, `quotes@` email, Cal.com link, service areas | **Public** (shown on the site) | `config.js` |
 | `quoteEndpoint` (Apps Script web app address) | **Public on purpose.** Browsers must know it to send quotes. Knowing it only lets someone *send* a quote, which is why the script checks everything | `config.js`, `quote.html` |
 | `NOTIFY_EMAIL` (`admin@`) | Not secret, but not advertised | The script (not published on the website) |
-| Photo folder ID, daily counters | Private | Apps Script → Project Settings → Script Properties (created automatically) |
+| `turnstileSiteKey` (Cloudflare Turnstile site key) | **Public on purpose.** It only identifies the widget | `config.js` |
+| `TURNSTILE_SECRET` (Cloudflare Turnstile secret key) | **Secret.** Anyone with it could fake the check's answers from their own server | Apps Script → Project Settings → **Script Properties** only |
+| `TURNSTILE_ENFORCE` = `yes` | Private setting | Script Properties. Delete it to go back to test mode instantly |
+| Photo folder ID, daily counters, approved website (`SITE_APPROVED`) | Private | Script Properties (created automatically) |
 | Google / GitHub / Microsoft / domain / Cal.com passwords | **Secret** | Only in your password manager. Never in this repo |
 
 There are **no environment variables or API keys** to set. postcodes.io needs no key. If you ever add a service that needs a secret key, it must go in the Apps Script's **Script Properties**, never in `config.js` or any file in this repository, because everything in the repo and on the website is public.
@@ -240,6 +288,8 @@ Why each part is there:
 | `frame-src 'none'`, `object-src 'none'`, `worker-src 'none'` | Nothing on the site uses them |
 | `base-uri 'self'` | Stops an injected `<base>` tag redirecting relative links |
 
+**The quote page only** also allows `https://challenges.cloudflare.com` in `script-src` and `frame-src`, for the Turnstile bot check. That's the address Cloudflare documents for it. Nothing loads from there until a site key is set in `config.js`, and the other 7 pages stay without it.
+
 **Adding a new service** (analytics, a Cal.com embed, a map, a review widget): add its domain to the right directive **on all 8 pages**, then check the browser console for "Refused to…" messages. Adding a page: copy the whole `<head>` from an existing page. Only add `unsafe-inline` or `unsafe-eval` if something genuinely can't work without it, and write down why here.
 
 `Referrer-Policy: strict-origin-when-cross-origin` (via `<meta name="referrer">`) means other sites only see `thelawnlads.co.uk`, never a full address such as `quote.html?postcode=LE10…`.
@@ -272,7 +322,7 @@ In GitHub → repo **Settings → Pages**, **"Enforce HTTPS" must be ticked**. T
 | **What's collected** | Quote form: name, phone, email, postcode, service, lawn size, free-text description, up to 3 garden photos, the in-area check, the page address and the time. Nothing else: **no cookies, no analytics, no tracking** |
 | **Why** | To reply with a quote and arrange the work |
 | **Where it's stored** | Your Google account: the **Sheet**, the **Drive** folder and, usually, a copy in the Gmail **Sent** folder (emails the script sends normally appear there). The `admin@thelawnlads.co.uk` inbox (Microsoft 365). Your phone, if you reply on WhatsApp |
-| **Who else handles it** | Google (Apps Script, Sheets, Drive, Gmail), Microsoft (email), **postcodes.io** (only the postcode, sent from the visitor's browser when they use the checker or leave the postcode box). Cal.com and WhatsApp only if the customer chooses to use them |
+| **Who else handles it** | Google (Apps Script, Sheets, Drive, Gmail), Microsoft (email), **postcodes.io** (the postcode, sent from the visitor's browser when they use the checker or leave the postcode box, which like any web request includes their IP address). **Cloudflare**, once the bot check is on: Turnstile checks the visitor's browser on the quote page. The form's small print says so automatically when the site key is set. Cal.com and WhatsApp only if the customer chooses to use them |
 | **How long it's kept** | **Not decided yet.** Nothing is deleted automatically |
 | **Photos** | Browsers now strip hidden data such as GPS location before sending |
 
@@ -287,8 +337,8 @@ In GitHub → repo **Settings → Pages**, **"Enforce HTTPS" must be ticked**. T
 
 ## 9. What still needs you (in priority order)
 
-1. **Deploy the new script** (section 1). Until then the backend fixes aren't live.
-2. **Lock down the accounts that really control the business.** This is now the biggest risk:
+1. **Update the script, then switch on the bot check** (section 1B and 1C). Until then the backend fixes aren't live, and the form can still be switched off by a script.
+2. **Lock down the accounts that really control the business** (also section 1D). This is now the biggest risk:
    - **Google account** that owns the Sheet/Drive/script: 2-Step Verification using a **passkey or the Google prompt** (not just SMS), plus up-to-date recovery email/phone. Check Security → "Your connections to third-party apps" and remove anything you don't recognise.
    - **GitHub:** turn on 2FA. Anyone who gets in can change the website, including the form's destination. Also, in the repo's **Settings → Code security**, turn on **Secret scanning** and **Push protection** (free for public repos).
    - **Domain registrar** (where thelawnlads.co.uk is registered): 2FA and a transfer/registrar lock.
@@ -303,13 +353,26 @@ In GitHub → repo **Settings → Pages**, **"Enforce HTTPS" must be ticked**. T
 7. **Treat quote emails as untrusted:** don't open links or attachments in them that you weren't expecting. The email now says so in its footer.
 8. Optional: Cloudflare in front of the site for the extra headers (section 7).
 
-**If the form is attacked** (you get "hourly limit" warnings and the Sheet fills with rubbish): check the Apps Script **Executions** page. The logs say *why* requests were refused, never what people typed. Short term, lower `MAX_PER_HOUR` or temporarily blank `quoteEndpoint` in `config.js` (the form then points people to WhatsApp). The proper fix is **Cloudflare Turnstile**, a free and mostly invisible CAPTCHA: the form gets a Turnstile widget, and the script checks its token with Cloudflare before accepting. That needs a Cloudflare account, a CSP update, and one new Google permission (the script contacting an outside service). It isn't turned on now because nothing suggests it's needed yet.
+**If the form is attacked** (you get "hourly limit" or "bot check isn't working" warnings, or the Sheet fills with rubbish):
+1. Check the Apps Script **Executions** page. The logs say *why* requests were refused, never what people typed.
+2. Make sure the bot check is **enforced** (section 1C step 4).
+3. Look through rows marked "Check: …" for real customers.
+4. Short term, you can temporarily blank `quoteEndpoint` in `config.js`; the form then points people to WhatsApp.
+
+**If you get a "THE WEBSITE HAS CHANGED" email you didn't expect:** follow the steps in it straight away (section 13).
 
 ---
 
 ## 10. Logging and error handling
 
-- **Script logs** (Apps Script → Executions, visible only to you) record the *outcome and reason* of each request: accepted, rejected (invalid email, hourly limit, per-person limit, too large, unreadable), ignored (honeypot), flagged (sent too fast / lots of links), or an error with a short message. **They never include names, emails, phone numbers, postcodes or descriptions.** Tests check this.
+- **Script logs** (Apps Script → Executions, visible only to you) record the *outcome and reason* of each request:
+  - accepted;
+  - rejected: invalid email, hourly limit, per-person limit, bot check failed (with Cloudflare's reason code), too large, unreadable;
+  - ignored: honeypot;
+  - flagged: sent too fast, lots of links, bot check unavailable;
+  - errors, as a short message.
+- They also record each hourly website check.
+- **They're designed not to include names, emails, phone numbers, postcodes or descriptions.** Tests check this. One exception: an error message from Google itself could contain an email address.
 - **Customers** only ever see short fixed messages ("Some details need checking: email.", "Something went wrong on our side."), always with WhatsApp and phone as a fallback. Never stack traces, file paths or settings.
 - **You** get a warning email, at most once a day per problem, when the hourly limit, photo budget or email quota is hit. Problems with a single quote are shown in its Status cell ("email failed", "not emailed: daily email limit", "Check: possible spam (…)").
 - There are no passwords, keys or session tokens anywhere in the system to leak into logs.
@@ -321,8 +384,8 @@ In GitHub → repo **Settings → Pages**, **"Enforce HTTPS" must be ticked**. T
 Two test suites are in `_security-tests/` (a folder starting with `_`, so it's never published). They need Node.js; the browser tests also need Playwright (`npm i -g playwright`).
 
 ```
-node _security-tests/gas.test.js     # the Apps Script, against mocked Google services  (62 checks)
-node _security-tests/site.test.js    # all pages in real Chromium, third parties mocked (145 checks)
+node _security-tests/gas.test.js     # the Apps Script, against mocked Google services and Cloudflare  (101 checks)
+node _security-tests/site.test.js    # all pages in real Chromium, third parties mocked             (158 checks)
 ```
 
 **Covered:**
@@ -341,6 +404,8 @@ node _security-tests/site.test.js    # all pages in real Chromium, third parties
 - the full quote journey, and JavaScript-off form posting
 - browser-to-script end to end
 
+**Passing tests don't prove it's secure.** The mocks carry the same assumptions as the code. The bot check was tested against Cloudflare's *documented* behaviour and a fake widget, **not the real Turnstile service**, which the review environment can't reach. That's why it starts in test mode: the first real quotes prove it works before it can block anyone. The website monitor was tested against your real pages served locally, not the live site.
+
 **Not testable from the review environment, so check these yourself:** the live site's real HTTP headers and HTTPS redirect, DNS/email records, and the real Google script after you deploy it (steps 4–6 in section 1). Unauthenticated/unauthorised access, expired sessions, IDOR and invalid IDs don't apply, because there are no logins, sessions or record IDs anywhere in the system.
 
 ---
@@ -355,8 +420,9 @@ node _security-tests/site.test.js    # all pages in real Chromium, third parties
 - [x] **Server-side validation**
 - [x] **XSS protection:** escaping everywhere, with the CSP as backstop, tested
 - [x] **CSRF protection where required:** not required (no sessions); documented why
-- [x] **Rate limiting:** hourly, per-person, daily photo and email reserve. (No IP limits: Apps Script can't see IPs)
-- [x] **Spam protection:** honeypot, fill-time and link checks. Turnstile ready as a next step
+- [x] **Rate limiting:** hourly (verified requests only once the bot check is on), per-person (alias-aware), daily photos, email reserve, capped Cloudflare checks. (No IP limits: Apps Script can't see IPs)
+- [~] **Spam protection:** honeypot, fill-time and link checks built in. **You:** switch on the Turnstile bot check (section 1C)
+- [~] **Website tampering alarm:** hourly monitor built in. **You:** run `setUpSiteMonitor` (section 1B)
 - [x] **File upload protection**
 - [x] **API security:** one endpoint, all input distrusted, returns no data
 - [x] **Authentication security:** no website login. **You:** 2FA on every account (section 9)
@@ -369,3 +435,23 @@ node _security-tests/site.test.js    # all pages in real Chromium, third parties
 - [~] **Privacy review:** done, and the form note is accurate. **You:** decisions in section 8
 - [x] **Mobile security considerations:** photo location data stripped, no app permissions used, sticky bar and forms tested at phone widths
 - [~] **Production configuration reviewed:** code yes. **You:** deploy the script, check Pages HTTPS and DNS email records
+
+---
+
+## 13. Website monitor
+
+The website is controlled by whoever can change the GitHub repository. If someone got into your GitHub account, or took over the domain, they could change the phone number, WhatsApp number or quote form so your customers contact *them*, and you might not notice for weeks.
+
+The quote form script runs in your **Google** account, so it also checks the live website every hour (`checkSite`). Someone who gets into GitHub can't switch it off. It compares the site with the version you last approved and emails you if any of these change:
+- the phone numbers, WhatsApp number, email, booking link, quote form address or bot-check key in `config.js`;
+- `config.js` or `site.js` at all;
+- any link that leaves the site (phone, WhatsApp, email, booking, social, other websites) or where a form sends to;
+- the security policy on any page;
+- any script written straight into a page.
+
+**Changing prices, wording or photos doesn't set it off.**
+
+- **When you change any of those yourself**, you'll get the email about an hour later. Run `approveCurrentSite` in the script and it goes quiet. (Reading the Execution log afterwards shows the details it approved: check they're yours.)
+- **If you didn't make the change**, follow the steps in the email: change your GitHub password, check two-step login, and undo any commits you don't recognise.
+- **If the site can't be read** three hours in a row, you get a "website check keeps failing" email.
+- It emails at most once a day per change, and it only ever reads `https://thelawnlads.co.uk/`.

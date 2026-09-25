@@ -358,13 +358,58 @@
         r.readAsDataURL(file);
       });
     };
-    var fail = function (message) {
+    /* bot check (Cloudflare Turnstile): only loads when a site key is set in config.js */
+    var bot = null;
+    var botBox = $("#q-bot-check");
+    if (C.turnstileSiteKey && botBox) {
+      bot = { token: "", widget: null, gaveUp: false, waiting: [] };
+      var botAnswer = function (token) {
+        bot.token = token || "";
+        var waiting = bot.waiting; bot.waiting = [];
+        waiting.forEach(function (resolve) { resolve(bot.token); });
+      };
+      var ts = document.createElement("script");
+      ts.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      ts.async = true;
+      ts.onload = function () {
+        try {
+          bot.widget = window.turnstile.render(botBox, {
+            sitekey: C.turnstileSiteKey,
+            action: "quote",                    // the Google Script only accepts tokens made for this form
+            appearance: "interaction-only",     // invisible unless Cloudflare needs the visitor to tick a box
+            callback: botAnswer,
+            "expired-callback": function () { bot.token = ""; }
+          });
+        } catch (e) { bot.gaveUp = true; botAnswer(""); }
+      };
+      ts.onerror = function () { bot.gaveUp = true; botAnswer(""); };
+      document.head.appendChild(ts);
+      $$("[data-bot-note]").forEach(function (el) { el.hidden = false; });
+    }
+    // A token, or "" if the check couldn't run. The Google Script decides what happens without one,
+    // so a problem loading Cloudflare never stops the form on its own.
+    var botToken = function () {
+      if (!bot || bot.token || bot.gaveUp) return Promise.resolve(bot ? bot.token : undefined);
+      return new Promise(function (resolve) {
+        bot.waiting.push(resolve);
+        setTimeout(function () { resolve(bot.token); }, 20000);
+      });
+    };
+    // Each token works once, so get a fresh one after every attempt
+    var botReset = function () {
+      if (!bot || bot.widget == null || !window.turnstile) return;
+      bot.token = "";
+      try { window.turnstile.reset(bot.widget); } catch (e) {}
+    };
+
+    var fail = function (message, canRetry) {
       submitBtn.disabled = false;
       submitBtn.textContent = "Send my quote request";
       statusEl.className = "form-status error";
+      var wa = '<a class="text-link" href="' + escapeHtml(waHref) + '" target="_blank" rel="noopener noreferrer">send it on WhatsApp</a>';
+      var tel = '<a class="text-link" href="tel:' + escapeHtml(C.phoneInternational) + '">' + escapeHtml(C.phoneDisplay) + '</a>';
       statusEl.innerHTML = escapeHtml(message) +
-        ' Please <a class="text-link" href="' + escapeHtml(waHref) + '" target="_blank" rel="noopener noreferrer">send it on WhatsApp</a>' +
-        ' or call <a class="text-link" href="tel:' + escapeHtml(C.phoneInternational) + '">' + escapeHtml(C.phoneDisplay) + '</a> instead.';
+        (canRetry ? ' If it keeps happening, ' + wa + ' or call ' + tel + '.' : ' Please ' + wa + ' or call ' + tel + ' instead.');
     };
     var showSuccess = function () {
       form.hidden = true;
@@ -399,8 +444,9 @@
       pcInput.value = pc;
       var sizePicked = form.querySelector('[name="lawn_size"]:checked');
 
-      Promise.all([lookupPostcode(pc), Promise.all(photos.map(function (p) { return p.ready; }))]).then(function (out) {
-        var area = out[0], files = out[1].filter(Boolean);
+      if (bot && !bot.token && !bot.gaveUp) submitBtn.textContent = "Checking you're not a robot…";
+      Promise.all([lookupPostcode(pc), Promise.all(photos.map(function (p) { return p.ready; })), botToken()]).then(function (out) {
+        var area = out[0], files = out[1].filter(Boolean), token = out[2];
         var total = files.reduce(function (sum, f) { return sum + f.size; }, 0);
         if (total > 12 * 1024 * 1024) {
           throw new Error("TOO_BIG");
@@ -419,6 +465,7 @@
             page: location.origin + location.pathname,
             _honey: $("#hp-honey").value,
             _elapsed: window.performance && performance.now ? Math.round(performance.now()) : null,   // time on page; bots are instant
+            _turnstile: token,
             photos: files.map(function (f, i) {
               return { name: f.name || ("photo-" + (i + 1) + ".jpg"), type: f.type || "image/jpeg", data: encoded[i] };
             })
@@ -435,9 +482,11 @@
         if (!res.ok) throw new Error("HTTP " + res.status);
         return res.json();
       }).then(function (body) {
+        botReset();
         if (body && body.ok) showSuccess();
-        else fail((body && body.error) || "That didn't go through.");
+        else fail((body && body.error) || "That didn't go through.", body && body.code === "robot");
       }).catch(function (err) {
+        botReset();
         if (err && err.message === "TOO_BIG") fail("Those photos are too big to send together — try removing one.");
         else fail("That didn't go through — it might be your connection.");
       });

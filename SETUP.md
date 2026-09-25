@@ -67,6 +67,8 @@ If an email ever goes missing, the request is still in the Sheet. The form also 
 
 **If you change the script later:** use **Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy**. That keeps the same URL, so you don't need to touch the website. "New deployment" would give you a new URL.
 
+**Security updates to the script** can need new permissions. Always run `testSetup` from the editor *before* deploying the new version (SECURITY.md section 1B has the exact steps). The script also watches the live website every hour. After you change phone numbers, links, `config.js` or `site.js`, you'll get an email about it: run `approveCurrentSite` to confirm it was you.
+
 **Good to know**
 - The notification emails come from your Google account, so the sender will be your Gmail. Replies go to the customer automatically.
 - Free Google accounts can send about 100 of these emails a day, which is far more than you'll need.

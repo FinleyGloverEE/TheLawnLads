@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <!-- Security policy: which sites this page may load from or send to. See SECURITY.md before adding any new service. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://api.postcodes.io https://script.google.com https://script.googleusercontent.com; form-action 'self' https://script.google.com https://script.googleusercontent.com; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; manifest-src 'self'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://api.postcodes.io https://script.google.com https://script.googleusercontent.com; form-action 'self' https://script.google.com https://script.googleusercontent.com; frame-src https://challenges.cloudflare.com; worker-src 'none'; object-src 'none'; base-uri 'self'; manifest-src 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Free Quote | The Lawn Lads</title>
@@ -158,9 +158,10 @@
             </div>
           </div>
 
+          <div class="bot-check" id="q-bot-check"></div>
           <button class="btn btn-primary btn-block" type="submit" id="q-submit">Send my quote request</button>
           <p class="form-status" id="q-status" role="status" aria-live="polite"></p>
-          <p class="form-foot">I'll only use your details to reply about your garden. No spam, no mailing lists. Your request and photos are saved in The Lawn Lads' Google account (Sheets and Drive) and emailed to our business inbox. Postcodes are checked with postcodes.io.</p>
+          <p class="form-foot">I'll only use your details to reply about your garden. No spam, no mailing lists. Your request and photos are saved in The Lawn Lads' Google account (Sheets and Drive) and emailed to our business inbox. Postcodes are checked with postcodes.io.<span data-bot-note hidden> Cloudflare Turnstile checks your browser to keep spam bots out.</span></p>
         </form>
       </div>
     </div>

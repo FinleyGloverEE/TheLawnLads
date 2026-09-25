@@ -212,6 +212,179 @@ console.log("Logging");
   check("logs record what happened", /accepted/.test(all) && /invalid email/.test(all) && /unreadable/.test(all), all);
 }
 
+/* ---------- H2: bot check (Cloudflare Turnstile), verified by the script ---------- */
+// Fake Cloudflare siteverify, following https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
+function cloudflare(state, how) {
+  state.fetch = (url, o) => {
+    if (url === "https://challenges.cloudflare.com/turnstile/v0/siteverify") {
+      if (how === "down") return { code: 503, body: "unavailable" };
+      if (how === "throw") throw new Error("DNS error");
+      const { secret, response } = o.payload;
+      if (secret === "BADSECRET") return { code: 200, body: JSON.stringify({ success: false, "error-codes": ["invalid-input-secret"] }) };
+      const ok = /^(GOOD|OTHERSITE|OTHERACTION)-/.test(response);
+      return { code: 200, body: JSON.stringify(ok
+        ? { success: true, hostname: response.startsWith("OTHERSITE") ? "evil.example" : "thelawnlads.co.uk", action: response.startsWith("OTHERACTION") ? "login" : "quote", "error-codes": [] }
+        : { success: false, "error-codes": ["invalid-input-response"] }) };
+    }
+    throw new Error("unexpected fetch " + url);
+  };
+}
+function botMode(state, mode, secret) {
+  state.props.set("TURNSTILE_SECRET", secret || "0x4AAAAAAA-test-secret");
+  if (mode === "enforce") state.props.set("TURNSTILE_ENFORCE", "yes");
+}
+const person = (i) => ({ email: "p" + i + "@example.com", phone: "0770090" + String(3000 + i) });
+const tok = () => "GOOD-" + Math.random().toString(36).slice(2).padEnd(12, "x");
+
+console.log("Bot check: off / test mode / enforced");
+{
+  const { g, state } = fresh();
+  post(g, m.jsonEvent(m.validQuote({ _turnstile: tok() })));
+  check("off by default: no Cloudflare calls, works as before", state.fetches.length === 0 && state.rows.length === 2 && state.mails.length === 1);
+}
+{
+  const { g, state } = fresh(); cloudflare(state); botMode(state, "test");
+  const a = post(g, m.jsonEvent(m.validQuote(Object.assign(person(1), { _turnstile: tok() }))));
+  const b = post(g, m.jsonEvent(m.validQuote(person(2))));
+  check("test mode never blocks (good token and no token both accepted)", a.ok && b.ok && state.rows.length === 3);
+  check("test mode reports the result in the email", /Bot check \(test mode\)<\/td><td[^>]*>passed/.test(state.mails[0].options.htmlBody) && /fail \(no token\)/.test(state.mails[1].options.htmlBody));
+}
+{
+  const { g, state } = fresh(); cloudflare(state); botMode(state, "enforce");
+  const good = post(g, m.jsonEvent(m.validQuote(Object.assign(person(1), { _turnstile: tok() }))));
+  check("enforced: valid token accepted", good.ok && state.rows.length === 2 && state.mails.length === 1);
+  const sent = state.fetches[0].options;
+  check("secret sent to Cloudflare only, by POST, no redirects", state.fetches[0].url === "https://challenges.cloudflare.com/turnstile/v0/siteverify" && sent.method === "post" && sent.followRedirects === false);
+  for (const [label, t] of [["missing token", undefined], ["made-up token", "FAKE-abcdefghijkl"], ["token from another website", "OTHERSITE-abcdefghij"], ["token for another form", "OTHERACTION-abcdefg"], ["absurdly long token", "GOOD-" + "x".repeat(5000)]]) {
+    const before = state.rows.length;
+    const r = post(g, m.jsonEvent(m.validQuote(Object.assign(person(10 + label.length), { _turnstile: t }))));
+    check("enforced: " + label + " rejected, nothing saved", r.ok === false && r.code === "robot" && state.rows.length === before, JSON.stringify(r));
+  }
+  check("missing / oversized tokens never cost a Cloudflare call", state.fetches.length === 4, String(state.fetches.length));
+  const html = m.parse(g.doPost(m.formEvent({ name: "Jo Bloggs", phone: "01455 123456", email: "jo@example.com", postcode: "LE10 1AA", service: "Hedge trimming", _honey: "" })));
+  check("enforced: JavaScript-off visitors told to switch it on or WhatsApp/call", html.html && /needs JavaScript/.test(html.html));
+}
+
+console.log("Bot check: the review's lockout attack (H2)");
+{
+  const { g, state } = fresh(); cloudflare(state); botMode(state, "enforce");
+  for (let i = 0; i < 30; i++) post(g, m.jsonEvent(m.validQuote(Object.assign(person(100 + i), { _turnstile: "FAKE-" + i + "-xxxxxxxx" }))));
+  for (let i = 0; i < 30; i++) post(g, m.jsonEvent(m.validQuote(person(200 + i))));
+  const r = post(g, m.jsonEvent(m.validQuote(Object.assign(person(1), { _turnstile: tok() }))));
+  check("60 scripted requests without a real token: real customer still gets through", r.ok && state.rows.length === 2 && state.mails.length === 1, JSON.stringify(r));
+  check("scripted requests saved nothing and sent no email", state.rows.length === 2 && state.mails.length === 1);
+}
+{
+  const { g, state } = fresh(); cloudflare(state); botMode(state, "enforce");
+  for (let i = 0; i < 600; i++) post(g, m.jsonEvent(m.validQuote(Object.assign(person(1000 + i), { _turnstile: "FAKE-" + i + "-xxxxxxxx" }))));
+  check("Cloudflare calls capped at 600 an hour (protects Google's 20,000/day allowance)", state.fetches.length === 600);
+  const real = post(g, m.jsonEvent(m.validQuote(Object.assign(person(1), { _turnstile: tok() }))));
+  const row = state.rows[state.rows.length - 1];
+  check("once the cap is used, a real quote is still kept (no photos, no email)", real.ok && row[1] === "Check: bot check unavailable" && state.fetches.length === 600, JSON.stringify(row && row.slice(1, 3)));
+  for (let i = 0; i < 25; i++) post(g, m.jsonEvent(m.validQuote(Object.assign(person(5000 + i), { _turnstile: "FAKE-" + i + "-yyyyyyyy" }))));
+  check("unchecked quotes limited to 20 an hour", state.rows.filter((x) => x[1] === "Check: bot check unavailable").length === 20);
+  check("owner warned once", state.mails.filter((x) => /bot check isn't working/.test(x.subject)).length === 1);
+}
+for (const how of ["down", "throw"]) {
+  const { g, state } = fresh(); cloudflare(state, how); botMode(state, "enforce");
+  const r = post(g, m.jsonEvent(m.validQuote({ _turnstile: tok(), photos: [{ type: "image/jpeg", data: m.JPEG.toString("base64") }] })));
+  check("Cloudflare " + (how === "down" ? "error" : "unreachable") + ": quote kept, no photos, owner warned", r.ok && state.rows[1][1] === "Check: bot check unavailable" && state.files.length === 0 && state.mails.length === 1 && /bot check isn't working/.test(state.mails[0].subject));
+}
+{
+  const { g, state } = fresh(); cloudflare(state); botMode(state, "enforce", "BADSECRET");
+  const r = post(g, m.jsonEvent(m.validQuote({ _turnstile: tok() })));
+  check("wrong secret pasted: customers not blamed, owner told the secret looks wrong", r.ok && state.rows[1][1] === "Check: bot check unavailable" && /TURNSTILE_SECRET/.test(state.mails[0].body));
+}
+{
+  const { g, state } = fresh(); cloudflare(state); botMode(state, "enforce");
+  for (let i = 0; i < 5; i++) post(g, m.jsonEvent(m.validQuote({ _turnstile: tok() })));
+  check("repeat sender stopped before a Cloudflare call (3 checks for 5 requests)", state.fetches.length === 3 && state.rows.length === 4, String(state.fetches.length));
+}
+{
+  const { g } = fresh();
+  const rs = ["victim+1@gmail.com", "vic.tim+2@gmail.com", "VICTIM@googlemail.com", "v.i.c.t.i.m+4@gmail.com"].map((e, i) => post(g, m.jsonEvent(m.validQuote({ email: e, phone: "07700 91" + (1000 + i) }))).ok);
+  check("Gmail +aliases and dots count as one person", rs.join() === "true,true,true,false", rs.join());
+}
+
+/* ---------- H3: site monitor ---------- */
+function fakeSite(state, edit) {
+  const fs = require("fs");
+  const files = {};
+  for (const f of ["index.html", "services.html", "our-work.html", "quote.html", "about.html", "faq.html", "contact.html", "config.js", "site.js"]) files[f] = fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+  if (edit) edit(files);
+  state.fetch = (url, o) => {
+    if (!url.startsWith("https://thelawnlads.co.uk/")) throw new Error("monitor fetched an unexpected address: " + url);
+    const f = url.slice("https://thelawnlads.co.uk/".length) || "index.html";
+    if (state.siteDown) throw new Error("timeout");
+    return files[f] != null ? { code: 200, body: files[f] } : { code: 404, body: "" };
+  };
+}
+function monitorAfter(edit) {
+  const { g, state } = fresh();
+  fakeSite(state);
+  g.setUpSiteMonitor();
+  fakeSite(state, edit);
+  g.checkSite();
+  return { g, state, alerts: state.mails.filter((x) => /WEBSITE HAS CHANGED/.test(x.subject)) };
+}
+
+console.log("Site monitor (H3)");
+{
+  const { g, state } = fresh(); fakeSite(state);
+  g.setUpSiteMonitor(); g.setUpSiteMonitor();
+  check("set-up creates exactly one hourly check", state.triggers.length === 1 && state.triggers[0].fn === "checkSite" && state.triggers[0].hours === 1);
+  check("approval lists the contact details for the owner to check", state.logs.some((l) => /WhatsApp number: 447912613180/.test(l[1]) && /Where quote requests are sent: https:\/\/script\.google\.com/.test(l[1])));
+  g.checkSite();
+  check("unchanged site: no email", state.mails.length === 0);
+  check("only ever fetches the site's own pages", state.fetches.every((f) => f.url.startsWith("https://thelawnlads.co.uk/")) && state.fetches.length === 27, String(state.fetches.length));
+}
+{
+  const { alerts } = monitorAfter((f) => { f["services.html"] = f["services.html"].replace(/£15/g, "£16"); f["about.html"] = f["about.html"].replace("neighbours", "neighbours and friends"); });
+  check("price and wording changes don't set it off", alerts.length === 0);
+}
+{
+  const { alerts } = monitorAfter((f) => { f["config.js"] = f["config.js"].replace('whatsappNumber: "447912613180"', 'whatsappNumber: "447000000001"'); });
+  check("changed WhatsApp number: alert says what changed", alerts.length === 1 && /WhatsApp number changed from "447912613180" to "447000000001"/.test(alerts[0].body) && /config\.js has been changed/.test(alerts[0].body), alerts[0] && alerts[0].body);
+}
+{
+  const { alerts } = monitorAfter((f) => { f["quote.html"] = f["quote.html"].replace(/action="https:\/\/script\.google\.com\/macros\/s\/[^"]+"/, 'action="https://script.google.com/macros/s/ATTACKER/exec"'); });
+  check("quote form pointed somewhere else: alert names the new address", alerts.length === 1 && /New link or address: https:\/\/script\.google\.com\/macros\/s\/ATTACKER\/exec/.test(alerts[0].body));
+}
+{
+  const { alerts } = monitorAfter((f) => { f["index.html"] = f["index.html"].replace("script-src 'self'", "script-src 'self' https://cdn.evil.example").replace("</body>", '<script src="https://cdn.evil.example/x.js"></script></body>'); });
+  check("new outside script + loosened security policy: both reported", alerts.length === 1 && /New link or address: https:\/\/cdn\.evil\.example\/x\.js/.test(alerts[0].body) && /security policy/.test(alerts[0].body));
+}
+{
+  const { alerts } = monitorAfter((f) => { f["contact.html"] = f["contact.html"].replace("</main>", "<script>document.forms[0]</script></main>"); });
+  check("script written straight into a page: reported", alerts.length === 1 && /written directly into a page/.test(alerts[0].body));
+}
+{
+  const { alerts } = monitorAfter((f) => { f["site.js"] = f["site.js"] + "\n// tampered"; });
+  check("site.js changed: reported", alerts.length === 1 && /site\.js has been changed/.test(alerts[0].body));
+}
+{
+  const { g, state } = monitorAfter((f) => { f["config.js"] = f["config.js"].replace("07912 613180", "07000 000000"); });
+  g.checkSite(); g.checkSite();
+  check("same change alerts once a day, not every hour", state.mails.filter((x) => /WEBSITE HAS CHANGED/.test(x.subject)).length === 1);
+  g.approveCurrentSite(); g.checkSite();
+  check("after the owner approves, it goes quiet", state.mails.filter((x) => /WEBSITE HAS CHANGED/.test(x.subject)).length === 1);
+}
+{
+  const { g, state } = fresh(); fakeSite(state); g.setUpSiteMonitor();
+  state.siteDown = true;
+  g.checkSite(); g.checkSite();
+  check("one or two failed checks: no email", state.mails.length === 0);
+  g.checkSite();
+  check("three failed checks in a row: owner told", state.mails.length === 1 && /keeps failing/.test(state.mails[0].subject));
+  state.siteDown = false; g.checkSite();
+  check("site back: counter resets, no false change alert", state.props.get("SITE_CHECK_FAILS") == null && state.mails.length === 1);
+}
+{
+  const { g, state } = fresh(); fakeSite(state, (f) => { delete f["site.js"]; });
+  let threw = false; try { g.approveCurrentSite(); } catch (e) { threw = /nothing was approved/.test(e.message); }
+  check("won't approve a half-loaded site", threw && !state.props.get("SITE_APPROVED"));
+}
+
 console.log("Script lists match the form in quote.html");
 {
   const fs = require("fs");

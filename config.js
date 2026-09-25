@@ -24,6 +24,12 @@ var LAWN_LADS_CONFIG = {
   // Until it's filled in, the form tells people to WhatsApp or call instead.
   quoteEndpoint: "https://script.google.com/macros/s/AKfycbxipaoCXGluQM-Ff_avPD1lzLDHRIM7qjL3JMI5IUGijPBdw2RAs2N1KA7LG7JiXx6Maw/exec",
 
+  // Bot check for the quote form (Cloudflare Turnstile). Paste the SITE key here: it's
+  // public, like everything in this file. The SECRET key must never go in this file or
+  // anywhere on GitHub: it goes in the Google Script's Script Properties (SECURITY.md).
+  // Leave empty and the check is switched off.
+  turnstileSiteKey: "",
+
   // Postcode checker: places we cover, with a centre point for distance checks.
   serviceAreas: [
     { name: "Hinckley",      lat: 52.5413, lon: -1.3733 },

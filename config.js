@@ -22,7 +22,7 @@ var LAWN_LADS_CONFIG = {
   // (see SETUP.md section 1). It looks like
   // "https://script.google.com/macros/s/AKfycb.../exec". Paste it between the quotes.
   // Until it's filled in, the form tells people to WhatsApp or call instead.
-  quoteEndpoint: "https://script.google.com/macros/s/AKfycbxipaoCXGluQM-Ff_avPD1lzLDHRIM7qjL3JMI5IUGijPBdw2RAs2N1KA7LG7JiXx6Maw/exec",
+  quoteEndpoint: "https://script.google.com/macros/s/AKfycbw_keP84_V021ayrsEjlfQc02z62So6GT34Ov6W173FvrUs498ftyL1-bQrEOd7SHYgjw/exec",
 
   // Bot check for the quote form (Cloudflare Turnstile). Paste the SITE key here: it's
   // public, like everything in this file. The SECRET key must never go in this file or

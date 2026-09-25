@@ -7,5 +7,4 @@
 exclude:
   - SETUP.md
   - SECURITY.md
-  - PRIVACY-NOTICE-DRAFT.md
   - quote-form-google-script.gs

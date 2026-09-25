@@ -20,7 +20,7 @@ The site is now split into separate pages. Everything sits in **one flat folder,
 | `*.woff2`, `FONT-LICENSE.txt` | The two fonts (Archivo Black and Atkinson Hyperlegible), served from your own site instead of Google, plus their free licence |
 | `_config.yml` | Tells GitHub Pages not to publish your notes (`SETUP.md`, `SECURITY.md`, the privacy draft) or the Google Script code |
 | `SECURITY.md` | Security review, limits, and what to do if the form is ever spammed. **Read section 1 of it after any security update** |
-| `PRIVACY-NOTICE-DRAFT.md` | A draft privacy page for you to finish (not published) |
+| `privacy.html` | Privacy notice (linked from every footer and the quote form). Update it if you change what you collect, who handles it, or how long you keep it |
 | `_security-tests/` | Automatic tests for the form and pages. Optional, never published |
 | `*.jpg` | The before/after photos |
 | `sitemap.xml`, `robots.txt` | Help Google find every page. Submit the sitemap in Google Search Console once the site is live |
@@ -29,7 +29,7 @@ The old `before.jpg` and `after.jpg` from the first version aren't used any more
 
 **Links use `.html` names** (e.g. `services.html`), so they work the same on Vercel, Cloudflare Pages and GitHub Pages without any extra setup. If you're on Cloudflare Pages, it will quietly redirect `/services.html` to `/services`. That's fine.
 
-**The header and footer are copied onto every page.** If you add a page or rename a menu item, change it on all seven pages. For a new page, copy the whole `<head>` from an existing one: it includes the security policy that decides which outside services the page may use (see SECURITY.md section 7 before adding any new service, like analytics or a map).
+**The header and footer are copied onto every page.** If you add a page or rename a menu item, change it on every page (including `privacy.html` and `404.html`). For a new page, copy the whole `<head>` from an existing one: it includes the security policy that decides which outside services the page may use (see SECURITY.md section 7 before adding any new service, like analytics or a map).
 
 ---
 

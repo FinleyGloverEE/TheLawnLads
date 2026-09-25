@@ -404,6 +404,60 @@ console.log("Site monitor (H3)");
   check("won't approve a half-loaded site", threw && !state.props.get("SITE_APPROVED"));
 }
 
+/* ---------- Monthly clean-up promised by the privacy notice ---------- */
+console.log("Monthly clean-up (privacy notice: 6 months)");
+{
+  const { g, state } = fresh({ now: new Date("2026-10-01T07:00:00Z") });
+  g.getSheet_();   // header row
+  const monthsAgo = (m, d) => { const x = new g.Date(state.now.getTime()); x.setMonth(x.getMonth() - m); x.setDate(x.getDate() - (d || 0)); return x; };
+  state.props.set("PHOTO_FOLDER_ID", "folder-1");   // set by the script the first time it saves a photo
+  state.files.push({ id: "fileAAAAAAAAAA1", parent: "folder-1" }, { id: "fileOUTSIDE0001", parent: "someone-elses-folder" });
+  const row = (received, status, name, photos) => [received, status, name, "'07700 900123", name.toLowerCase().replace(/\W/g, "") + "@example.com", "LE10 1AA", "In area (Hinckley)", "Hedge trimming", "Not given", "", photos || "", ""];
+  state.rows.push(
+    row(monthsAgo(7), "New", "Old Enquiry", "https://drive.google.com/file/d/fileAAAAAAAAAA1/view?usp=drivesdk"),
+    row(monthsAgo(7), "Booked", "Real Customer"),
+    row(monthsAgo(9), "keep", "Owner Kept"),
+    row(monthsAgo(2), "New", "Recent Enquiry"),
+    row(monthsAgo(8), "Check: possible spam (sent too fast)", "Old Spam"),
+    row(monthsAgo(7), "Quoted", "Changes Mind"),
+    row("not a date", "New", "Undated Row"),
+    row(monthsAgo(7, 3), "New", "Odd Photo", "https://drive.google.com/file/d/fileOUTSIDE0001/view")
+  );
+  g.setUpMonthlyCleanup(); g.setUpMonthlyCleanup();
+  check("set-up creates exactly one daily clean-up check", state.triggers.filter((t) => t.fn === "cleanUpOldQuotes").length === 1 && state.triggers[0].days === 1);
+  const notice = state.mails.filter((x) => /will be deleted on/.test(x.subject));
+  check("first run emails one list a week ahead, deletes nothing yet", notice.length === 1 && state.rows.length === 9 && /will be deleted on 8 Oct 2026/.test(notice[0].subject), notice[0] && notice[0].subject);
+  const body = notice[0].body;
+  check("list includes the 4 expired rows only", ["Old Enquiry", "Old Spam", "Changes Mind", "Odd Photo"].every((n) => body.includes(n)) && !/Real Customer|Owner Kept|Recent Enquiry|Undated Row/.test(body), body);
+  check("list reminds owner to delete the emails too (both inboxes)", /admin@thelawnlads\.co\.uk inbox/.test(body) && /in:sent subject:"Quote request" before:2026\/04\/01/.test(body));
+
+  // During the week: owner keeps one and re-sorts the sheet
+  state.now = new Date("2026-10-04T07:00:00Z"); g.cleanUpOldQuotes();
+  check("nothing happens before the due date", state.rows.length === 9 && state.mails.length === 1);
+  state.rows.find((r) => r[2] === "Changes Mind")[1] = "Booked";
+  const header = state.rows.shift(); state.rows.reverse(); state.rows.unshift(header);
+
+  state.now = new Date("2026-10-08T07:00:00Z"); g.cleanUpOldQuotes();
+  const left = state.rows.slice(1).map((r) => r[2]).sort();
+  check("on the due date: exactly the expired, unkept rows deleted (even after re-sorting)", left.join() === ["Changes Mind", "Owner Kept", "Real Customer", "Recent Enquiry", "Undated Row"].sort().join(), left.join());
+  check("their photo moved to the Drive bin", state.trashed.join() === "fileAAAAAAAAAA1", state.trashed.join());
+  check("a file outside the quote photos folder is never touched", state.trashed.indexOf("fileOUTSIDE0001") === -1);
+  const done = state.mails.filter((x) => /old quote requests deleted/.test(x.subject));
+  check("summary email: 3 deleted, 1 kept because its status changed", done.length === 1 && /Deleted 3 old quote/.test(done[0].body) && /1 were kept/.test(done[0].body), done[0] && done[0].body);
+
+  state.now = new Date("2026-10-20T07:00:00Z"); g.cleanUpOldQuotes();
+  check("only acts once a month", state.mails.length === 2 && state.rows.length === 6);
+  state.now = new Date("2026-11-01T07:00:00Z"); g.cleanUpOldQuotes();
+  check("next month: nothing newly expired, so no email", state.mails.length === 2);
+}
+{
+  const { g, state } = fresh({ now: new Date("2026-10-01T07:00:00Z") });
+  g.getSheet_();
+  for (let i = 0; i < 250; i++) { const d = new g.Date(state.now.getTime()); d.setMonth(d.getMonth() - 7); d.setMinutes(i); state.rows.push([d, "New", "Spam " + i, "'0", "s" + i + "@x.com", "LE10 1AA", "", "", "", "", "", ""]); }
+  g.cleanUpOldQuotes();
+  check("at most 200 in one month (the rest wait for next month)", /^Lawn Lads: 200 old/.test(state.mails[0].subject) && JSON.parse(state.props.get("CLEANUP_PENDING")).keys.length === 200);
+}
+
 console.log("Script lists match the form in quote.html");
 {
   const fs = require("fs");

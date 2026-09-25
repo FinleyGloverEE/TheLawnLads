@@ -16,7 +16,7 @@ function load(scriptPath, opts) {
   const state = {
     rows: [], files: [], mails: [], logs: [], cache: new Map(), props: new Map(),
     mailQuota: opts.mailQuota == null ? 100 : opts.mailQuota, folders: 0, now: opts.now || new Date("2026-09-25T10:15:00Z"),
-    fetches: [], triggers: [],
+    fetches: [], triggers: [], trashed: [],
     // Replace to simulate Cloudflare / the live website: (url, options) => ({ code, body }) or throw
     fetch: opts.fetch || (() => { throw new Error("no network in tests"); })
   };
@@ -24,6 +24,8 @@ function load(scriptPath, opts) {
     appendRow(r) { state.rows.push(r.slice()); },
     getLastRow() { return state.rows.length; },
     getRange(row) { return { setFontWeight() {}, getCell(_r, c) { return { setValue(v) { state.rows[row - 1][c - 1] = v; } }; } }; },
+    getDataRange() { return { getValues: () => state.rows.map((r) => r.slice()) }; },
+    deleteRow(n) { state.rows.splice(n - 1, 1); },
     setFrozenRows() {}
   };
   const g = {
@@ -59,6 +61,12 @@ function load(scriptPath, opts) {
     },
     DriveApp: {
       getFolderById(id) { if (id !== "folder-1") throw new Error("not found"); return folder; },
+      getFileById(id) {
+        const f = state.files.find((x) => x.id === id);
+        if (!f) throw new Error("File not found: " + id);
+        const parents = [{ getId: () => f.parent }];
+        return { getId: () => id, getParents: () => ({ hasNext: () => parents.length > 0, next: () => parents.shift() }), setTrashed: (v) => { if (v) state.trashed.push(id); } };
+      },
       createFolder() { state.folders++; return folder; }
     },
     MailApp: {
@@ -80,17 +88,18 @@ function load(scriptPath, opts) {
       deleteTrigger(t) { state.triggers = state.triggers.filter((x) => x !== t); },
       newTrigger(fn) {
         const t = { fn, getHandlerFunction: () => fn };
-        const b = { timeBased: () => b, everyHours: (h) => { t.hours = h; return b; }, create: () => { state.triggers.push(t); return t; } };
+        const b = { timeBased: () => b, everyHours: (h) => { t.hours = h; return b; }, everyDays: (d) => { t.days = d; return b; }, atHour: (h) => { t.atHour = h; return b; }, create: () => { state.triggers.push(t); return t; } };
         return b;
       }
     },
     Utilities: {
       DigestAlgorithm: { SHA_256: "sha256" },
       Charset: { UTF_8: "utf8" },
-      formatDate(d, _tz, fmt) {
+      formatDate(d, _tz, fmt) {   // subset of Java SimpleDateFormat (UTC; tests avoid times near midnight)
         const p = (n) => String(n).padStart(2, "0");
-        return fmt.replace("yyyy", d.getUTCFullYear()).replace("MM", p(d.getUTCMonth() + 1)).replace("dd", p(d.getUTCDate()))
-          .replace("HH", p(d.getUTCHours())).replace("mm", p(d.getUTCMinutes()));
+        const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const t = { yyyy: d.getUTCFullYear(), MMM: MON[d.getUTCMonth()], MM: p(d.getUTCMonth() + 1), dd: p(d.getUTCDate()), d: d.getUTCDate(), HH: p(d.getUTCHours()), mm: p(d.getUTCMinutes()) };
+        return fmt.replace(/yyyy|MMM|MM|dd|d|HH|mm/g, (k) => t[k]);
       },
       base64Decode(s) {
         s = String(s);
@@ -109,7 +118,7 @@ function load(scriptPath, opts) {
     getId: () => "folder-1",
     createFile(blob) {
       const id = "file-" + (state.files.length + 1);
-      state.files.push({ id, name: blob.getName(), type: blob.getContentType(), size: blob.getBytes().length, head: blob.getBytes().slice(0, 12) });
+      state.files.push({ id, parent: "folder-1", name: blob.getName(), type: blob.getContentType(), size: blob.getBytes().length, head: blob.getBytes().slice(0, 12) });
       return { getUrl: () => "https://drive.google.com/file/d/" + id + "/view", getId: () => id };
     }
   };

@@ -720,6 +720,115 @@ function checkSite() {
     'You\'ll get this once a day until it\'s approved or put back.');
 }
 
+/* ---------------- monthly clean-up (see the privacy notice) ---------------- */
+// The privacy notice promises that quote requests that don't turn into work are deleted
+// 6 months after they arrive. Once set up (setUpMonthlyCleanup), this runs every morning
+// but only acts once a month: it emails you a list of what's due to go, waits 7 days so
+// you can keep anything by setting its Status to Booked (or Keep), then deletes those rows
+// and moves their photos to Drive's bin (Google empties the bin after 30 days).
+// It can't delete emails, so the list email tells you which ones to delete yourself.
+
+var CLEANUP = { KEEP_MONTHS: 6, NOTICE_DAYS: 7, MAX_PER_MONTH: 200, KEEP_STATUS: /book|keep|customer/i };
+
+function quoteKey_(received, email) {
+  return received.getTime() + '|' + hash_(String(email || '').toLowerCase());
+}
+
+function cleanupCutoff_() {
+  var cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - CLEANUP.KEEP_MONTHS);
+  return cutoff;
+}
+
+// Rows older than 6 months whose Status doesn't say Booked / Keep / Customer.
+function expiredQuotes_() {
+  var values = getSheet_().getDataRange().getValues();
+  var cutoff = cleanupCutoff_(), out = [];
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i], received = r[0], status = String(r[1] || '');
+    if (!(received instanceof Date) || isNaN(received.getTime())) continue;   // can't tell its age: never delete
+    if (received >= cutoff || CLEANUP.KEEP_STATUS.test(status)) continue;
+    out.push({ row: i + 1, key: quoteKey_(received, r[4]), received: received, name: String(r[2] || ''),
+               postcode: String(r[5] || ''), status: status, photos: String(r[10] || '') });
+  }
+  return out;
+}
+
+function ukDate_(d, fmt) { return Utilities.formatDate(d, 'Europe/London', fmt || 'd MMM yyyy'); }
+
+/** Runs every morning once setUpMonthlyCleanup has been run. */
+function cleanUpOldQuotes() {
+  var props = PropertiesService.getScriptProperties();
+  var today = ukDate_(new Date(), 'yyyy-MM-dd');
+  var pending = props.getProperty('CLEANUP_PENDING');
+  if (pending) {
+    pending = JSON.parse(pending);
+    if (today < pending.due) return;
+    props.deleteProperty('CLEANUP_PENDING');
+    deleteExpired_(pending.keys);
+    return;
+  }
+  var month = today.slice(0, 7);
+  if (props.getProperty('CLEANUP_MONTH') === month) return;   // already looked this month
+  props.setProperty('CLEANUP_MONTH', month);
+
+  var due = expiredQuotes_().slice(0, CLEANUP.MAX_PER_MONTH);
+  if (!due.length) { log_('clean-up', 'nothing due'); return; }
+  var when = new Date();
+  when.setDate(when.getDate() + CLEANUP.NOTICE_DAYS);
+  props.setProperty('CLEANUP_PENDING', JSON.stringify({ due: ukDate_(when, 'yyyy-MM-dd'), keys: due.map(function (q) { return q.key; }) }));
+  var cutoff = cleanupCutoff_();
+  log_('clean-up', due.length + ' due on ' + ukDate_(when, 'yyyy-MM-dd'));
+  MailApp.sendEmail(CONFIG.NOTIFY_EMAIL,
+    'Lawn Lads: ' + due.length + ' old quote request(s) will be deleted on ' + ukDate_(when),
+    'Your privacy notice says quote requests that don\'t turn into work are deleted after ' + CLEANUP.KEEP_MONTHS + ' months.\n\n' +
+    'On ' + ukDate_(when) + ' these rows will be deleted from the Quotes sheet, and their photos moved to the Drive bin:\n\n' +
+    due.map(function (q) { return '- ' + ukDate_(q.received) + '  ' + q.name + '  ' + q.postcode + '  (' + (q.status || 'no status') + ')'; }).join('\n') +
+    '\n\nTo KEEP any of them (for example a customer), change its Status to Booked (or Keep) before then.\n\n' +
+    'The script can\'t delete emails, so please delete the matching quote emails yourself:\n' +
+    '- In the admin@thelawnlads.co.uk inbox: search for "Quote request" and delete any from before ' + ukDate_(cutoff) + ' (unless they became customers).\n' +
+    '- In Gmail, search:  in:sent subject:"Quote request" before:' + ukDate_(cutoff, 'yyyy/MM/dd') + '  and delete those too.',
+    { name: 'The Lawn Lads website' });
+}
+
+function deleteExpired_(keys) {
+  var sheet = getSheet_();
+  var wanted = {};
+  keys.forEach(function (k) { wanted[k] = true; });
+  // Check again: anything changed to Booked/Keep during the week, or already removed, is left alone
+  var go = expiredQuotes_().filter(function (q) { return wanted[q.key]; });
+  var folderId = PropertiesService.getScriptProperties().getProperty('PHOTO_FOLDER_ID');
+  var binned = 0;
+  go.sort(function (a, b) { return b.row - a.row; });   // bottom up, so row numbers don't shift
+  go.forEach(function (q) {
+    (q.photos.match(/\/d\/[A-Za-z0-9_-]{10,}/g) || []).forEach(function (m) {
+      try {
+        var file = DriveApp.getFileById(m.slice(3)), parents = file.getParents(), ours = false;
+        while (parents.hasNext()) if (parents.next().getId() === folderId) ours = true;
+        if (ours) { file.setTrashed(true); binned++; }   // only ever photos in the quote photos folder
+      } catch (err) { logError_('clean-up photo', err); }
+    });
+    sheet.deleteRow(q.row);
+  });
+  log_('clean-up', 'deleted ' + go.length + ' quote(s), binned ' + binned + ' photo(s)');
+  if (go.length || keys.length) {
+    MailApp.sendEmail(CONFIG.NOTIFY_EMAIL, 'Lawn Lads: old quote requests deleted',
+      'Deleted ' + go.length + ' old quote request(s) from the Quotes sheet and moved ' + binned + ' photo(s) to the Drive bin.' +
+      (keys.length > go.length ? '\n' + (keys.length - go.length) + ' were kept because their Status was changed or they were already gone.' : '') +
+      '\n\nRemember to delete the matching emails if you haven\'t already.', { name: 'The Lawn Lads website' });
+  }
+}
+
+/** Run once: checks every morning and clears out expired quote requests once a month. */
+function setUpMonthlyCleanup() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'cleanUpOldQuotes') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('cleanUpOldQuotes').timeBased().everyDays(1).atHour(8).create();
+  cleanUpOldQuotes();
+  console.log('Monthly clean-up is on. It emails you a list a week before deleting anything.');
+}
+
 /**
  * Run this from the editor (select "testSetup" and press Run) after pasting in new code.
  * The first run asks Google for permission. It creates the Quotes tab if needed and emails
@@ -730,10 +839,12 @@ function testSetup() {
   var mode = botCheckMode_();
   var enforceValue = PropertiesService.getScriptProperties().getProperty('TURNSTILE_ENFORCE');
   var monitor = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'checkSite'; });
+  var cleanup = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'cleanUpOldQuotes'; });
   MailApp.sendEmail(CONFIG.NOTIFY_EMAIL, 'Lawn Lads quote form — test email',
     'If you can read this, quote emails will reach this inbox. You can delete this email.\n\n' +
     'Emails left today: ' + MailApp.getRemainingDailyQuota() + '\n' +
     'Bot check: ' + { off: 'OFF (not set up yet, see SECURITY.md)', test: 'TEST MODE (checks and reports in each quote email, blocks nothing)', enforce: 'ON' }[mode] +
     (mode === 'test' && enforceValue != null ? ' - TURNSTILE_ENFORCE is set to "' + enforceValue + '", which isn\'t "yes"' : '') + '\n' +
-    'Website monitor: ' + (monitor ? 'ON (checks every hour)' : 'OFF (run setUpSiteMonitor)'));
+    'Website monitor: ' + (monitor ? 'ON (checks every hour)' : 'OFF (run setUpSiteMonitor)') + '\n' +
+    'Monthly clean-up of old quotes: ' + (cleanup ? 'ON' : 'OFF (run setUpMonthlyCleanup)'));
 }

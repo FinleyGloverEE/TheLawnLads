@@ -1076,3 +1076,12 @@
 
 /* Bot check (Cloudflare Turnstile). Empty, and so invisible, unless it's switched on in config.js */
 .bot-check:not(:empty) { display: flex; justify-content: center; margin: 0 0 14px; }
+
+/* ---------- privacy notice ---------- */
+.legal { max-width: 70ch; }
+.legal h2 { font-size: clamp(1.3rem, 2.4vw, 1.6rem); margin: 34px 0 10px; }
+.legal p, .legal li { color: var(--ink-soft); }
+.legal strong { color: var(--ink); }
+.legal ul { padding-left: 1.2em; margin: 0 0 14px; }
+.legal li { margin-bottom: 6px; }
+.legal .updated { font-size: 0.95rem; margin-top: 0; }

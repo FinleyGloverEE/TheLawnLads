@@ -59,6 +59,13 @@ Nothing in the code can stop someone who logs in as you. Whoever controls your G
 - **WhatsApp:** Settings → Account → **Two-step verification** (a PIN).
 - The website monitor (step B5) is your alarm if any of this fails.
 
+### E. Update for the privacy notice (5 minutes)
+The script now has a monthly clean-up that makes the privacy notice's "deleted after 6 months" true.
+1. In the **live** project (the one whose deployment matches `quoteEndpoint`), replace the code with the new `quote-form-google-script.gs` and **Save**.
+2. Pick `setUpMonthlyCleanup` and press **Run**. It shouldn't ask for new permissions. It checks every morning, acts once a month, and emails you a list a week before deleting anything.
+3. **Deploy → Manage deployments → ✏️ → New version → Deploy**, so the form also gets the latest fixes.
+4. Run `testSetup`: the email should show the bot check **ON**, the website monitor **ON** and the monthly clean-up **ON**.
+
 ---
 
 ## 2. What the site is made of (inventory)
@@ -171,7 +178,7 @@ Severity: **CRITICAL** (being exploited or trivially exploitable with serious ha
 ### MEDIUM-4: No privacy notice for the personal data the form collects
 - **Where:** Whole site. The quote form only said "I'll only use your details to reply…".
 - **Why it matters:** UK GDPR says people must be told who is collecting their data, why, where it goes, how long it's kept and what their rights are, *when* you collect it.
-- **What changed:** The line under the form now accurately says where the details and photos go. A **draft privacy notice** with the facts filled in is in `PRIVACY-NOTICE-DRAFT.md` (not published).
+- **What changed:** The line under the form now accurately says where the details and photos go. The full privacy notice is now published at `privacy.html` (section 8).
 - **What's left:** Decisions only you can make (section 8). This review doesn't make legal claims for you.
 
 ### LOW-1: Your setup notes and the script's source code were published on the website
@@ -290,7 +297,7 @@ Why each part is there:
 
 **The quote page only** also allows `https://challenges.cloudflare.com` in `script-src` and `frame-src`, for the Turnstile bot check. That's the address Cloudflare documents for it. Nothing loads from there until a site key is set in `config.js`, and the other 7 pages stay without it.
 
-**Adding a new service** (analytics, a Cal.com embed, a map, a review widget): add its domain to the right directive **on all 8 pages**, then check the browser console for "Refused to…" messages. Adding a page: copy the whole `<head>` from an existing page. Only add `unsafe-inline` or `unsafe-eval` if something genuinely can't work without it, and write down why here.
+**Adding a new service** (analytics, a Cal.com embed, a map, a review widget): add its domain to the right directive **on all 9 pages** (including `privacy.html` and `404.html`), then check the browser console for "Refused to…" messages. Adding a page: copy the whole `<head>` from an existing page. Only add `unsafe-inline` or `unsafe-eval` if something genuinely can't work without it, and write down why here.
 
 `Referrer-Policy: strict-origin-when-cross-origin` (via `<meta name="referrer">`) means other sites only see `thelawnlads.co.uk`, never a full address such as `quote.html?postcode=LE10…`.
 
@@ -315,23 +322,31 @@ In GitHub → repo **Settings → Pages**, **"Enforce HTTPS" must be ticked**. T
 
 ---
 
-## 8. Privacy (UK GDPR) review
+## 8. Privacy (UK GDPR)
+
+The privacy notice is published at **https://thelawnlads.co.uk/privacy.html**, linked from every page's footer and from the quote form. **If anything below changes (a new service, a new form field, a different retention period), update that page too.**
 
 | | |
 |---|---|
-| **What's collected** | Quote form: name, phone, email, postcode, service, lawn size, free-text description, up to 3 garden photos, the in-area check, the page address and the time. Nothing else: **no cookies, no analytics, no tracking** |
-| **Why** | To reply with a quote and arrange the work |
-| **Where it's stored** | Your Google account: the **Sheet**, the **Drive** folder and, usually, a copy in the Gmail **Sent** folder (emails the script sends normally appear there). The `admin@thelawnlads.co.uk` inbox (Microsoft 365). Your phone, if you reply on WhatsApp |
-| **Who else handles it** | Google (Apps Script, Sheets, Drive, Gmail), Microsoft (email), **postcodes.io** (the postcode, sent from the visitor's browser when they use the checker or leave the postcode box, which like any web request includes their IP address). **Cloudflare**, once the bot check is on: Turnstile checks the visitor's browser on the quote page. The form's small print says so automatically when the site key is set. Cal.com and WhatsApp only if the customer chooses to use them |
-| **How long it's kept** | **Not decided yet.** Nothing is deleted automatically |
-| **Photos** | Browsers now strip hidden data such as GPS location before sending |
+| **Data controller** | Finley Glover, trading as The Lawn Lads |
+| **What's collected** | Quote form: name, phone, email, postcode, service, lawn size, free-text description, up to 3 garden photos, the in-area check, the page address and the time. The website sets **no cookies** and uses **no analytics or tracking** |
+| **Why / legal basis** | To reply with a quote and arrange the work: steps before a contract, and the contract (UK GDPR Article 6(1)(b)) |
+| **Where it's stored** | Your Google account: the **Sheet**, the **Drive** folder and, usually, a copy in the Gmail **Sent** folder. The `admin@thelawnlads.co.uk` inbox (Microsoft 365). Your phone, if you reply on WhatsApp |
+| **Who else handles it** | Google, Microsoft, **Cloudflare Turnstile** (IP address and browser details on the quote page, only to spot bots), **postcodes.io** (postcode plus, like any web request, the visitor's IP address), **GitHub** (hosts the site and logs visitors' IP addresses for security). Cal.com, WhatsApp, Facebook and TikTok only if the visitor chooses to use them |
+| **How long it's kept** | Quotes that don't lead to work: **6 months**. Customers: while they're a customer, then as long as HMRC requires |
+| **Photos** | Browsers strip hidden data such as GPS location before sending |
 
-**Decisions only you can make** (then fill in `PRIVACY-NOTICE-DRAFT.md` and publish it as a page linked from the form and footer):
-1. **Who the data controller is:** you by name, or a parent/guardian if you're under 18 and they're responsible for the business. Plus a contact for privacy questions.
-2. **How long you keep quotes that didn't turn into jobs** (a common choice is 6–12 months), and customer records for jobs you did. HMRC expects business records to be kept for **at least 5 years after the 31 January Self Assessment deadline** for that tax year. When you delete, remember the four copies: the Sheet row, the Drive photos, the Gmail Sent email and the Microsoft 365 email.
-3. **Whether to use a separate Google account for the business.** A personal Gmail account doesn't come with a data processing agreement. Google Workspace does, and it keeps business data apart from your personal email. Worth considering once the business grows.
-4. **Whether you need to pay the ICO data protection fee.** Many small businesses that only handle their own customers' details are exempt, but check with the ICO's online self-assessment ("Do I need to pay the data protection fee?") rather than assuming.
-5. Only ask for what you need: the form requires both phone *and* email. Keep both if you genuinely use both.
+**How the 6 months actually happens:** the script's **monthly clean-up** (`setUpMonthlyCleanup`, section 1E).
+- On the first morning of each month it emails you a list of quote rows older than 6 months.
+- 7 days later it deletes them and moves their photos to the Drive bin. Google empties the bin after 30 days.
+- **Rows whose Status contains "Booked", "Keep" or "Customer" are never deleted**, so mark real customers.
+- **It can't delete emails.** Each list email tells you exactly what to search for and delete in the admin@ inbox and in Gmail's Sent folder. The privacy notice promises those go too, so do it when the email arrives.
+- Customer records (Booked) aren't deleted automatically. Review them yourself once they're older than HMRC's limit.
+
+**Still worth doing:**
+1. **Check whether you need to pay the ICO data protection fee.** Many small businesses that only handle their own customers' details are exempt, but use the ICO's online self-assessment ("Do I need to pay the data protection fee?") rather than assuming.
+2. **Consider a separate Google account for the business.** A personal Gmail account doesn't come with a data processing agreement; Google Workspace does, and it keeps business data apart from your personal email.
+3. Only ask for what you need: the form requires both phone *and* email. Keep both if you genuinely use both.
 
 ---
 
@@ -348,7 +363,7 @@ In GitHub → repo **Settings → Pages**, **"Enforce HTTPS" must be ticked**. T
    - Use a password manager and a different password for each one.
 3. **Tick "Enforce HTTPS"** in GitHub Pages settings, then confirm `http://thelawnlads.co.uk` redirects to `https://`.
 4. **Check email authentication** for thelawnlads.co.uk. In the Microsoft 365 admin centre, make sure **DKIM** is switched on. Use a free checker (e.g. MXToolbox) for **SPF** and **DMARC**. A DMARC record starting at `p=none` with reports is a safe first step.
-5. **Privacy decisions** (section 8), then publish a privacy page.
+5. **Privacy:** notice published. Run `setUpMonthlyCleanup` and delete the old emails each month when the list arrives (section 8).
 6. **Never share the "Lawn Lads quote photos" Drive folder or the Sheet** with "Anyone with the link".
 7. **Treat quote emails as untrusted:** don't open links or attachments in them that you weren't expecting. The email now says so in its footer.
 8. Optional: Cloudflare in front of the site for the extra headers (section 7).
@@ -432,7 +447,7 @@ node _security-tests/site.test.js    # all pages in real Chromium, third parties
 - [x] **Dependency audit:** no dependencies. Google Fonts removed
 - [x] **Error handling:** generic messages only
 - [x] **Logging:** outcomes logged, no personal data
-- [~] **Privacy review:** done, and the form note is accurate. **You:** decisions in section 8
+- [x] **Privacy notice:** published and linked from every page and the form. Monthly clean-up in the script. **You:** run `setUpMonthlyCleanup`, delete old emails monthly, check the ICO fee
 - [x] **Mobile security considerations:** photo location data stripped, no app permissions used, sticky bar and forms tested at phone widths
 - [~] **Production configuration reviewed:** code yes. **You:** deploy the script, check Pages HTTPS and DNS email records
 

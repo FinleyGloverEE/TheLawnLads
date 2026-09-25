@@ -17,7 +17,7 @@ let playwright;
 try { playwright = require("playwright"); } catch (e) { playwright = require(path.join(execSync("npm root -g").toString().trim(), "playwright")); }
 
 const ROOT = path.join(__dirname, "..");
-const PAGES = ["index.html", "services.html", "our-work.html", "quote.html", "about.html", "faq.html", "contact.html", "404.html"];
+const PAGES = ["index.html", "services.html", "our-work.html", "quote.html", "about.html", "faq.html", "contact.html", "privacy.html", "404.html"];
 const ENDPOINT_HOST = "script.google.com";
 const shotsDir = process.argv.indexOf("--shots") !== -1 ? process.argv[process.argv.indexOf("--shots") + 1] : null;
 const TYPES = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".jpg": "image/jpeg", ".png": "image/png",
@@ -52,6 +52,25 @@ const POSTCODES = {
   "CV11 4AA": { latitude: 52.52, longitude: -1.46, parish: null, bua: "Nuneaton", admin_ward: "Abbey" }
 };
 
+// Fake loader following Cloudflare's client API (render / reset, callback with a token), which
+// adds a real cross-origin iframe so the quote page's CSP is exercised the way the widget would.
+const FAKE_TURNSTILE = `(function () {
+  var n = 0; window.__ts = { renders: [], resets: 0 };
+  window.turnstile = {
+    render: function (el, o) {
+      window.__ts.renders.push({ sitekey: o.sitekey, action: o.action, appearance: o.appearance });
+      var f = document.createElement("iframe");
+      f.src = "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/fake"; f.width = 300; f.height = 65; f.style.border = "0";
+      el.appendChild(f);
+      window.__ts.issue = function () { setTimeout(function () { o.callback("GOOD-" + (++n) + "-token-xxxxxxxx"); }, 300); };
+      window.__ts.issue();
+      return "w1";
+    },
+    reset: function () { window.__ts.resets++; window.__ts.issue(); },
+    getResponse: function () { return ""; }
+  };
+})();`;
+
 async function setup(context, state) {
   state.requests = []; state.posts = []; state.endpointReply = { ok: true };
   // Only for comparing against the old Google-hosted fonts: GF_DIR holds a saved copy of Google's CSS and font files.
@@ -60,6 +79,10 @@ async function setup(context, state) {
     await context.route("https://fonts.gstatic.com/**", (r) => r.fulfill({ status: 200, contentType: "font/woff2", headers: { "access-control-allow-origin": "*" }, body: fs.readFileSync(path.join(process.env.GF_DIR, path.basename(new URL(r.request().url()).pathname))) }));
   }
   context.on("request", (r) => state.requests.push(r.url()));
+  // config.js has a Turnstile site key, so the quote page loads Cloudflare's widget: use the fake one
+  await context.route("https://challenges.cloudflare.com/**", (r) => /api\.js/.test(r.request().url())
+    ? r.fulfill({ status: 200, contentType: "text/javascript", body: FAKE_TURNSTILE })
+    : r.fulfill({ status: 200, contentType: "text/html", body: "<p>widget</p>" }));
   await context.route("https://api.postcodes.io/**", (route) => {
     const pc = decodeURIComponent(route.request().url().split("/postcodes/")[1] || "");
     const hit = POSTCODES[pc];
@@ -122,7 +145,8 @@ async function main() {
         })(),
         loadedFaces: Array.from(document.fonts).filter((f) => f.status === "loaded").map((f) => f.family + " " + f.weight),
         links: Array.from(document.querySelectorAll("a[href]")).map((a) => a.getAttribute("href")),
-        blank: Array.from(document.querySelectorAll('a[target="_blank"]')).filter((a) => !/noopener/.test(a.rel)).length
+        blank: Array.from(document.querySelectorAll('a[target="_blank"]')).filter((a) => !/noopener/.test(a.rel)).length,
+        privacyLink: !!document.querySelector('.site-footer a[href$="privacy.html"]')
       }));
       const tag = p + " @" + width;
       check(tag + " has CSP", info.meta);
@@ -130,8 +154,10 @@ async function main() {
       check(tag + " no sideways scroll", !info.overflow);
       check(tag + " fonts loaded", info.fonts.every(Boolean), JSON.stringify({ fonts: info.fonts, loaded: info.loadedFaces }));
       check(tag + " target=_blank links have noopener", info.blank === 0);
-      const external = state.requests.filter((u) => !u.startsWith(base) && !/^(data|blob):/.test(u));
-      check(tag + " no third-party requests on load", external.length === 0, external.join(", "));
+      check(tag + " footer links to the privacy notice", info.privacyLink);
+      const external = state.requests.filter((u) => !u.startsWith(base) && !/^(data|blob):/.test(u) &&
+        !(p === "quote.html" && u.startsWith("https://challenges.cloudflare.com/")));   // the bot check, quote page only
+      check(tag + (p === "quote.html" ? " no third-party requests on load except the bot check" : " no third-party requests on load"), external.length === 0, external.join(", "));
       if (width === 390) {
         const internal = [...new Set(info.links.filter((h) => !/^(https?:|mailto:|tel:|#)/.test(h)).map((h) => new URL(h, base + p).pathname))];
         const broken = [];
@@ -172,9 +198,11 @@ async function main() {
     await page.check("#size-m", { force: true });
     await page.fill("#q-desc", "Front hedge.");
   };
-  const newQuotePage = async (url) => {
+  const newQuotePage = async (url, opts) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 900 } });
     await setup(context, state);
+    if (opts && opts.noBotKey) await context.route(base + "config.js", (r) => r.fulfill({ status: 200, contentType: "text/javascript",
+      body: fs.readFileSync(path.join(ROOT, "config.js"), "utf8").replace(/turnstileSiteKey: "[^"]*"/, 'turnstileSiteKey: ""') }));
     await context.addInitScript(() => { window.__csp = []; document.addEventListener("securitypolicyviolation", (e) => window.__csp.push(e.violatedDirective + " " + e.blockedURI)); });
     const page = await context.newPage(); const problems = []; watch(page, problems);
     await page.goto(base + (url || "quote.html"));
@@ -190,6 +218,7 @@ async function main() {
     check("valid quote with photos reaches thank-you message", true);
     const sent = JSON.parse(state.posts[0].body);
     check("sent as text/plain JSON (simple CORS request)", /text\/plain/.test(state.posts[0].type));
+    check("quote form links to the privacy notice", (await page.$('.form-foot a[href="privacy.html"]')) !== null);
     check("both photos re-encoded to JPEG in the browser", sent.photos.length === 2 && sent.photos.every((p) => p.type === "image/jpeg" && Buffer.from(p.data, "base64").slice(0, 3).toString("hex") === "ffd8ff"), JSON.stringify(sent.photos.map((p) => p.type)));
     check("photo metadata (EXIF/GPS) stripped", sent.photos.every((p) => Buffer.from(p.data, "base64").indexOf("Exif") === -1));
     check("fill-time sent for bot check", typeof sent._elapsed === "number" && sent._elapsed > 0, sent._elapsed);
@@ -253,29 +282,11 @@ async function main() {
     await context.close();
   }
   // ---- Bot check (Cloudflare Turnstile) switched on in config.js ----
-  // Fake loader following Cloudflare's client API (render / reset, callback with a token), which
-  // adds a real cross-origin iframe so the quote page's CSP is exercised the way the widget would.
-  const FAKE_TURNSTILE = `(function () {
-    var n = 0; window.__ts = { renders: [], resets: 0 };
-    window.turnstile = {
-      render: function (el, o) {
-        window.__ts.renders.push({ sitekey: o.sitekey, action: o.action, appearance: o.appearance });
-        var f = document.createElement("iframe");
-        f.src = "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/fake"; f.width = 300; f.height = 65; f.style.border = "0";
-        el.appendChild(f);
-        window.__ts.issue = function () { setTimeout(function () { o.callback("GOOD-" + (++n) + "-token-xxxxxxxx"); }, 300); };
-        window.__ts.issue();
-        return "w1";
-      },
-      reset: function () { window.__ts.resets++; window.__ts.issue(); },
-      getResponse: function () { return ""; }
-    };
-  })();`;
   const withBotCheck = async (url, how) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 900 } });
     await setup(context, state);
     await context.route(base + "config.js", (r) => r.fulfill({ status: 200, contentType: "text/javascript",
-      body: fs.readFileSync(path.join(ROOT, "config.js"), "utf8").replace('turnstileSiteKey: ""', 'turnstileSiteKey: "0x4AAAAAAATESTSITEKEY"') }));
+      body: fs.readFileSync(path.join(ROOT, "config.js"), "utf8").replace(/turnstileSiteKey: "[^"]*"/, 'turnstileSiteKey: "0x4AAAAAAATESTSITEKEY"') }));
     const cf = [];
     await context.route("https://challenges.cloudflare.com/**", (r) => {
       cf.push(r.request().url());
@@ -356,11 +367,11 @@ async function main() {
     await context.close();
   }
   {
-    const { context, page } = await newQuotePage();
+    const { context, page } = await newQuotePage(undefined, { noBotKey: true });
     state.posts = [];
     await fillValid(page); await page.click("#q-submit");
     await page.waitForSelector("#quote-success:not([hidden])", { timeout: 15000 });
-    check("site key empty (default): no token field sent, note stays hidden", !("_turnstile" in JSON.parse(state.posts[0].body)) && !(await page.isVisible("[data-bot-note]")));
+    check("site key empty: widget not loaded, no token field sent, note stays hidden", !("_turnstile" in JSON.parse(state.posts[0].body)) && !(await page.isVisible("[data-bot-note]")));
     await context.close();
   }
 

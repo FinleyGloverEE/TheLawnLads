@@ -1,0 +1,11 @@
+{
+  "name": "The Lawn Lads",
+  "short_name": "Lawn Lads",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#3d6144",
+  "background_color": "#f4efe1",
+  "display": "browser"
+}

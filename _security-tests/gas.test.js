@@ -265,6 +265,25 @@ console.log("Bot check: off / test mode / enforced");
   check("enforced: JavaScript-off visitors told to switch it on or WhatsApp/call", html.html && /needs JavaScript/.test(html.html));
 }
 
+console.log("Bot check: forgiving settings");
+for (const [value, want] of [["yes", "enforce"], ["Yes", "enforce"], [" YES ", "enforce"], ["true", "enforce"], ["no", "test"], ["", "test"]]) {
+  const { g, state } = fresh(); cloudflare(state); botMode(state, "test");
+  state.props.set("TURNSTILE_ENFORCE", value);
+  const r = post(g, m.jsonEvent(m.validQuote({ _turnstile: undefined })));
+  const got = r.ok === false && r.code === "robot" ? "enforce" : "test";
+  check('TURNSTILE_ENFORCE = "' + value + '" -> ' + want, got === want, got);
+}
+{
+  const { g, state } = fresh(); cloudflare(state); botMode(state, "enforce", "  0x4AAAAAAA-test-secret \n");
+  post(g, m.jsonEvent(m.validQuote({ _turnstile: tok() })));
+  check("secret pasted with spaces/newline is trimmed before sending", state.fetches[0].options.payload.secret === "0x4AAAAAAA-test-secret");
+}
+{
+  const { g, state } = fresh(); botMode(state, "test"); state.props.set("TURNSTILE_ENFORCE", "yess");
+  g.testSetup();
+  check("testSetup email explains an unrecognised TURNSTILE_ENFORCE value", /TEST MODE.*TURNSTILE_ENFORCE is set to "yess"/.test(state.mails[0].body), state.mails[0].body);
+}
+
 console.log("Bot check: the review's lockout attack (H2)");
 {
   const { g, state } = fresh(); cloudflare(state); botMode(state, "enforce");

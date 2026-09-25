@@ -369,8 +369,9 @@ function alertOnce_(what, subject, body) {
 // TURNSTILE_ENFORCE = yes. See SECURITY.md for the steps.
 function botCheckMode_() {
   var props = PropertiesService.getScriptProperties();
-  if (!props.getProperty('TURNSTILE_SECRET')) return 'off';
-  return props.getProperty('TURNSTILE_ENFORCE') === 'yes' ? 'enforce' : 'test';
+  if (!String(props.getProperty('TURNSTILE_SECRET') || '').trim()) return 'off';
+  // "yes", "Yes", " YES " (phones capitalise), "true" and "on" all count
+  return /^(yes|y|true|on|1)$/.test(String(props.getProperty('TURNSTILE_ENFORCE') || '').trim().toLowerCase()) ? 'enforce' : 'test';
 }
 
 // result: 'pass', 'fail' (the visitor didn't pass), or 'unavailable' (couldn't ask Cloudflare)
@@ -393,7 +394,7 @@ function checkHuman_(token) {
   try {
     res = UrlFetchApp.fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       method: 'post',
-      payload: { secret: PropertiesService.getScriptProperties().getProperty('TURNSTILE_SECRET'), response: token },
+      payload: { secret: String(PropertiesService.getScriptProperties().getProperty('TURNSTILE_SECRET')).trim(), response: token },
       muteHttpExceptions: true,
       followRedirects: false
     });
@@ -727,10 +728,12 @@ function checkSite() {
 function testSetup() {
   getSheet_();
   var mode = botCheckMode_();
+  var enforceValue = PropertiesService.getScriptProperties().getProperty('TURNSTILE_ENFORCE');
   var monitor = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'checkSite'; });
   MailApp.sendEmail(CONFIG.NOTIFY_EMAIL, 'Lawn Lads quote form — test email',
     'If you can read this, quote emails will reach this inbox. You can delete this email.\n\n' +
     'Emails left today: ' + MailApp.getRemainingDailyQuota() + '\n' +
-    'Bot check: ' + { off: 'OFF (not set up yet, see SECURITY.md)', test: 'TEST MODE (checks and reports in each quote email, blocks nothing)', enforce: 'ON' }[mode] + '\n' +
+    'Bot check: ' + { off: 'OFF (not set up yet, see SECURITY.md)', test: 'TEST MODE (checks and reports in each quote email, blocks nothing)', enforce: 'ON' }[mode] +
+    (mode === 'test' && enforceValue != null ? ' - TURNSTILE_ENFORCE is set to "' + enforceValue + '", which isn\'t "yes"' : '') + '\n' +
     'Website monitor: ' + (monitor ? 'ON (checks every hour)' : 'OFF (run setUpSiteMonitor)'));
 }

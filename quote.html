@@ -75,17 +75,10 @@
           </div>
         </div>
 
-        <!-- The form posts to FormSubmit, which emails each request (with photos attached)
-             to the inbox set as quoteFormAction in config.js.
-             See SETUP.md for the one-time activation step. -->
-        <form class="quote-card" id="quote-form" method="POST" action="https://formsubmit.co/quotes@thelawnlads.co.uk" enctype="multipart/form-data">
-          <input type="hidden" name="_subject" value="New quote request — The Lawn Lads website">
-          <input type="hidden" name="_next" value="https://thelawnlads.co.uk/quote.html?quote=sent">
-          <input type="hidden" name="_captcha" value="false">
-          <input type="hidden" name="_template" value="table">
-          <input type="hidden" name="_replyto" value="">
+        <!-- The form sends each request to your Google Sheet (see quoteEndpoint in config.js
+             and SETUP.md section 1). The action below is only used if JavaScript is switched off. -->
+        <form class="quote-card" id="quote-form" method="POST" action="PASTE-YOUR-GOOGLE-SCRIPT-URL-HERE">
           <input type="hidden" name="area_check" value="Not checked">
-          <input type="hidden" name="photos_attached" value="0">
           <div class="hp-field" aria-hidden="true">
             <label for="hp-honey">Leave this empty</label>
             <input type="text" id="hp-honey" name="_honey" tabindex="-1" autocomplete="off">
@@ -158,10 +151,6 @@
               </label>
               <div class="thumbs" id="q-thumbs"></div>
               <p class="field-error" id="q-photos-err" aria-live="polite"></p>
-              <!-- The resized photos are placed in these three inputs just before sending -->
-              <input type="file" name="photo_1" id="q-photo-1" hidden>
-              <input type="file" name="photo_2" id="q-photo-2" hidden>
-              <input type="file" name="photo_3" id="q-photo-3" hidden>
             </div>
           </div>
 

@@ -205,8 +205,7 @@
 
     // Settings -> form (JS handles validation with friendlier messages)
     form.noValidate = true;
-    form.action = C.quoteFormAction;
-    form.querySelector('[name="_next"]').value = C.siteUrl.replace(/\/?$/, "/") + "quote.html?quote=sent";
+    if (C.quoteEndpoint) form.action = C.quoteEndpoint;
 
     var errors = {
       name: function (v) { return v.trim().length >= 2 ? "" : "Please add your name."; },
@@ -337,10 +336,27 @@
     });
     dropzone.addEventListener("drop", function (e) { if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files); });
 
-    var putFileInInput = function (input, file) {
-      var dt = new DataTransfer();
-      dt.items.add(file instanceof File ? file : new File([file], file.name || "photo.jpg", { type: file.type || "image/jpeg" }));
-      input.files = dt.files;
+    var toBase64 = function (file) {
+      return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { resolve(String(r.result).split(",")[1] || ""); };
+        r.onerror = function () { reject(new Error("read failed")); };
+        r.readAsDataURL(file);
+      });
+    };
+    var fail = function (message) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Send my quote request";
+      statusEl.className = "form-status error";
+      statusEl.innerHTML = escapeHtml(message) +
+        ' Please <a class="text-link" href="' + escapeHtml(waHref) + '" target="_blank" rel="noopener noreferrer">send it on WhatsApp</a>' +
+        ' or call <a class="text-link" href="tel:' + escapeHtml(C.phoneInternational) + '">' + escapeHtml(C.phoneDisplay) + '</a> instead.';
+    };
+    var showSuccess = function () {
+      form.hidden = true;
+      successBox.hidden = false;
+      successBox.scrollIntoView({ block: "start" });
+      successBox.focus({ preventScroll: true });
     };
 
     form.addEventListener("submit", function (e) {
@@ -358,38 +374,57 @@
         firstBad.focus();
         return;
       }
+      if (!C.quoteEndpoint) {
+        fail("Sorry, online quotes aren't switched on just yet.");
+        return;
+      }
       submitBtn.disabled = true;
       submitBtn.textContent = photos.length ? "Preparing photos…" : "Sending…";
 
       var pc = normalisePostcode(pcInput.value);
       pcInput.value = pc;
-      var service = $("#q-service").value;
-      var emailVal = $("#q-email").value.trim();
+      var sizePicked = form.querySelector('[name="lawn_size"]:checked');
 
       Promise.all([lookupPostcode(pc), Promise.all(photos.map(function (p) { return p.ready; }))]).then(function (out) {
         var area = out[0], files = out[1];
-        form.querySelector('[name="area_check"]').value = areaSummary(area);
-        form.querySelector('[name="_subject"]').value =
-          "Quote request: " + service + " — " + pc + (isInside(area) ? "" : " (OUTSIDE AREA)");
-        form.querySelector('[name="_replyto"]').value = emailVal;
-        form.querySelector('[name="photos_attached"]').value = String(files.length);
-        var total = files.reduce(function (s, f) { return s + f.size; }, 0);
-        if (total > 9.5 * 1024 * 1024) {
-          throw new Error("Those photos are too big to send together. Try removing one, or send them on WhatsApp instead.");
+        var total = files.reduce(function (sum, f) { return sum + f.size; }, 0);
+        if (total > 12 * 1024 * 1024) {
+          throw new Error("TOO_BIG");
         }
-        [$("#q-photo-1"), $("#q-photo-2"), $("#q-photo-3")].forEach(function (input, i) {
-          if (files[i]) { putFileInInput(input, files[i]); input.disabled = false; }
-          else { input.disabled = true; } // empty slots aren't sent
+        return Promise.all(files.map(toBase64)).then(function (encoded) {
+          submitBtn.textContent = "Sending…";
+          var payload = {
+            name: $("#q-name").value.trim(),
+            phone: $("#q-phone").value.trim(),
+            email: $("#q-email").value.trim(),
+            postcode: pc,
+            area_check: areaSummary(area),
+            service: $("#q-service").value,
+            lawn_size: sizePicked ? sizePicked.value : "",
+            description: $("#q-desc").value.trim(),
+            page: location.href.split("?")[0],
+            _honey: $("#hp-honey").value,
+            photos: files.map(function (f, i) {
+              return { name: f.name || ("photo-" + (i + 1) + ".jpg"), type: f.type || "image/jpeg", data: encoded[i] };
+            })
+          };
+          // text/plain keeps this a "simple" request, which Google Apps Script accepts from any site
+          return fetch(C.quoteEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload),
+            redirect: "follow"
+          });
         });
-        submitBtn.textContent = "Sending…";
-        HTMLFormElement.prototype.submit.call(form);
+      }).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      }).then(function (body) {
+        if (body && body.ok) showSuccess();
+        else fail((body && body.error) || "That didn't go through.");
       }).catch(function (err) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Send my quote request";
-        statusEl.className = "form-status error";
-        statusEl.innerHTML = escapeHtml(err && err.message && err.message.indexOf("photos") !== -1 ? err.message :
-          "Something went wrong preparing your request.") +
-          ' You can also <a class="text-link" href="' + escapeHtml(waHref) + '" target="_blank" rel="noopener noreferrer">send it on WhatsApp</a>.';
+        if (err && err.message === "TOO_BIG") fail("Those photos are too big to send together — try removing one.");
+        else fail("That didn't go through — it might be your connection.");
       });
     });
 

@@ -14,7 +14,8 @@ The site is now split into separate pages. Everything sits in **one flat folder,
 | `quote.html` | Get a Free Quote: the photo quote form |
 | `contact.html` | Contact & booking |
 | `404.html` | Shown if someone lands on a page that doesn't exist |
-| `config.js` | **Your settings** (phone, WhatsApp, email, booking link, quote inbox, areas) |
+| `config.js` | **Your settings** (phone, WhatsApp, email, booking link, quote form address, areas) |
+| `quote-form-google-script.gs` | The quote-form receiver that runs in Google Apps Script. It doesn't need uploading to GitHub (see section 1) |
 | `site.css`, `site.js` | The look and the behaviour, shared by every page |
 | `*.jpg` | The before/after photos |
 | `sitemap.xml`, `robots.txt` | Help Google find every page. Submit the sitemap in Google Search Console once the site is live |
@@ -27,25 +28,46 @@ The old `before.jpg` and `after.jpg` from the first version aren't used any more
 
 ---
 
-## 1. Switch on the quote form (do this once, straight after uploading)
+## 1. Connect the quote form to your Google Sheet (about 10 minutes, once)
 
-The "Get a Free Quote" form sends each request, photos attached, to **quotes@thelawnlads.co.uk** through FormSubmit (formsubmit.co). It's free, needs no account, and works on Vercel, Cloudflare Pages or GitHub Pages.
+Quote requests no longer go through FormSubmit. They go to a small script that runs on **your own Google account**. For every request it:
 
-1. **Check the inbox works first.** Send a normal email to quotes@thelawnlads.co.uk from your phone and make sure it arrives. If you're using Cloudflare Email Routing or Zoho to forward it, set that up before anything else.
-2. **Send yourself a test quote** from the live site. Use your own details and add a photo.
-3. FormSubmit will email quotes@ with an **"Activate Form"** button. Click it. Until you do, requests don't get delivered, and the first real customer would see FormSubmit's confirmation page instead of the thank-you message. That's why the test comes first.
-4. Send one more test. It should arrive as a table with the photos attached, and you should land back on the site with the thank-you message.
-5. **Optional, but recommended:** after activating, FormSubmit gives you a random alias (something like `https://formsubmit.co/8f3a…`). Put it in two places so your email address isn't sitting in the page code for spam bots to find:
-   - `quoteFormAction` in `config.js`
-   - the `action="…"` on the `<form id="quote-form">` line in `quote.html`
+- adds a row to a Google Sheet (name, phone, email, postcode, whether you cover it, service, size, description, photo links, and a **Status** column you can change to Quoted / Booked / Not interested)
+- saves the photos in a Google Drive folder called **Lawn Lads quote photos**
+- emails **admin@thelawnlads.co.uk** with the details and the photos attached. Hit Reply to answer the customer, or use the WhatsApp link in the email.
 
-**What each quote email includes:** name, phone, email, postcode, service, lawn size, description, the number of photos, and an `area_check` line. That line tells you whether the postcode is in your area. Examples: `In area (Barwell)`, or `OUTSIDE — 4.1 mi from Hinckley`. Anything outside the area also gets **(OUTSIDE AREA)** in the subject line. Look back over those every so often to see where demand is coming from before you decide where to expand.
+If an email ever goes missing, the request is still in the Sheet. The form also tells customers to WhatsApp or call if something fails, so no quote gets lost without anyone knowing.
 
-**Limits you should know about:**
-- Photos get shrunk on the customer's phone before they're sent (to about 1600px, usually 200–600KB each). That keeps uploads quick on mobile data and well under FormSubmit's 10MB total.
-- iPhone HEIC photos are turned into JPEGs by the phone automatically.
-- Customers **don't** currently get an automatic confirmation email. FormSubmit only sends auto-replies if its "I'm not a robot" page is switched on, and that page adds an extra step after someone has just filled in a long form. If you'd rather have the auto-reply, change `_captcha` to `true` and add `<input type="hidden" name="_autoresponse" value="Thanks — I've got your request and will be in touch shortly. – The Lawn Lads">` inside the form.
-- Spam is filtered by a hidden "honeypot" field. If spam starts getting through anyway, switch `_captcha` to `true`.
+**Steps**
+
+1. Sign in to the Google account you want to own the quotes (your Gmail is fine).
+2. Go to **sheets.new** to make a new Google Sheet. Call it `Lawn Lads quotes`.
+3. In the Sheet's menu: **Extensions → Apps Script**. A code editor opens.
+4. Delete the few lines of example code that are there. Open `quote-form-google-script.gs` from the zip, copy **all** of it, and paste it in. Click the **💾 Save** icon. At the top, rename the project from "Untitled project" to `Lawn Lads quote form`.
+5. **Test the email first.** In the dropdown next to ▶ Run, pick `testSetup`, then click **▶ Run**.
+   - Google will ask for permission. Click **Review permissions**, choose your account, then **Advanced → Go to Lawn Lads quote form (unsafe) → Allow**. "Unsafe" only means Google hasn't reviewed a script you wrote for yourself. It's asking to add rows to your Sheet, save photos to your Drive and send emails as you.
+   - Check that a "test email" reached **admin@thelawnlads.co.uk**, and that a **Quotes** tab has appeared in the Sheet.
+   - **If the test email doesn't arrive, stop here and tell me.** That means your Microsoft 365 inbox is blocking outside mail, and the form was never the problem.
+6. Click **Deploy → New deployment**. Click the ⚙️ next to "Select type" and choose **Web app**. Set:
+   - Description: `Quote form`
+   - Execute as: **Me**
+   - Who has access: **Anyone** (this lets the website send to it; nobody can read your Sheet)
+
+   Click **Deploy**, then **copy the Web app URL**. It ends in `/exec`.
+7. Paste that URL into two places:
+   - `config.js`: between the quotes on the `quoteEndpoint: ""` line
+   - `quote.html`: replace `PASTE-YOUR-GOOGLE-SCRIPT-URL-HERE` on the `<form id="quote-form"` line. This is only used by the rare visitor with JavaScript switched off.
+8. Upload `config.js`, `quote.html` and `site.js` to GitHub, replacing the old copies. Wait a couple of minutes for GitHub Pages to update.
+9. **Send yourself a test quote** from the live site with a photo attached. You should see the thank-you message. The email with the photo should reach admin@, a new row should appear in the Sheet, and the photo should be in the Drive folder.
+
+**If you change the script later:** use **Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy**. That keeps the same URL, so you don't need to touch the website. "New deployment" would give you a new URL.
+
+**Good to know**
+- The notification emails come from your Google account, so the sender will be your Gmail. Replies go to the customer automatically.
+- Free Google accounts can send about 100 of these emails a day, which is far more than you'll need.
+- Photos are shrunk on the customer's phone before sending (to about 1600px, usually 200–600KB each), so uploads are quick on mobile data.
+- A hidden "honeypot" field catches spam bots, and there's a limit of 30 requests an hour so nobody can fill your Drive. You can change both at the top of the script.
+- Customers don't get an automatic confirmation email. They see the thank-you message on screen instead. That's easy to add to the script later if you want it.
 
 ---
 
@@ -60,8 +82,7 @@ Every phone, WhatsApp, email and booking link on every page comes from this one 
 | `phoneDisplay` / `phoneInternational` | The number shown on the page, and the one the Call buttons dial |
 | `contactEmail` | The email shown on the page |
 | `bookingUrl` | Your Cal.com page (every "Book a Lawn Cut" button) |
-| `quoteFormAction` | Where quote requests go (see section 1) |
-| `siteUrl` | Your live address. FormSubmit sends people back to `quote.html` on it after they send a quote |
+| `quoteEndpoint` | Your Google Script web app URL. It's where quote requests go (see section 1) |
 | `serviceAreas` | The places the postcode checker counts as covered, with a centre point for each |
 | `fallbackSectors` | Backup postcode list, only used if the lookup service is down |
 
@@ -123,14 +144,14 @@ The FAQ (in `faq.html`) is written in your voice, but some answers are **policie
 The page was checked in a headless Chrome browser at phone (390px, 360px, 320px) and desktop (1280px) widths:
 
 - **Postcode checker:** in-area, edge, nearby, far away, invalid and not-found postcodes, and the offline fallback, all against simulated postcodes.io responses.
-- **Quote form:** validation messages, photo type/size/count limits, photo shrinking and the exact data sent to FormSubmit (fields, subject line and attached JPEGs, checked against a simulated FormSubmit), plus the thank-you message on return.
+- **Quote form:** validation messages, photo type/size/count limits, photo shrinking and the exact data sent (fields and attached JPEGs), plus the thank-you message.
 - **Rest of the page:** gallery pop-up (opens, closes with Escape), FAQ drop-downs, structured data, the sticky bar's show/hide behaviour, no sideways scrolling, and no script errors.
 
-Two things couldn't be tested from here and need your real test submission: the actual FormSubmit delivery to your inbox, and live postcodes.io lookups. The response format was checked against real postcodes.io data for all six towns.
+Two things couldn't be tested from here and need your real test submission: delivery to your real Google account and inbox, and live postcodes.io lookups. The response format was checked against real postcodes.io data for all six towns.
 
 After the split into pages, everything was checked again on all eight pages at phone and desktop sizes:
 
 - **Every page:** no sideways scrolling, one main heading each, the menu highlights the page you're on, every internal link points to a file that exists, and there are no script errors.
 - **Across pages:** the phone "Menu" button opens and closes. A postcode checked on the home page carries over to the quote form.
 - **Our Work:** the filter buttons and the photo pop-up work with all three jobs.
-- **Quote form:** an out-of-area quote with a photo was sent to a simulated FormSubmit, which returned to the thank-you message on `quote.html`.
+- **Quote form:** it was switched to the Google Sheet script and checked against a simulated Google Script. That covered the exact data sent (including the photos as real JPEGs), the thank-you message, a clear message when the form isn't connected yet, and what happens if the script returns an error or the connection drops. The script itself was run against simulated Google services. It saves the row, keeps only real image files, blocks spreadsheet-formula tricks, flags outside-area requests in the subject line, ignores honeypot spam, enforces the hourly limit, and still keeps the quote in the Sheet if the email fails.

@@ -18,15 +18,11 @@ var LAWN_LADS_CONFIG = {
   // Online booking (Cal.com)
   bookingUrl: "https://cal.com/thelawnlads",
 
-  // Where quote requests are sent. FormSubmit emails each request, with photos
-  // attached, to this address. After the one-time activation (see SETUP.md)
-  // FormSubmit gives you a random alias. Paste it here instead of the email,
-  // e.g. "https://formsubmit.co/a1b2c3d4e5f6...", so the address isn't public.
-  quoteFormAction: "https://formsubmit.co/quotes@thelawnlads.co.uk",
-
-  // Your live site address (with the / on the end). FormSubmit sends people
-  // back to  <siteUrl>quote.html?quote=sent  after they send a quote.
-  siteUrl: "https://thelawnlads.co.uk/",
+  // Where quote requests are sent: the web app address of your Google Apps Script
+  // (see SETUP.md section 1). It looks like
+  // "https://script.google.com/macros/s/AKfycb.../exec". Paste it between the quotes.
+  // Until it's filled in, the form tells people to WhatsApp or call instead.
+  quoteEndpoint: "",
 
   // Postcode checker: places we cover, with a centre point for distance checks.
   serviceAreas: [

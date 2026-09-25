@@ -22,7 +22,7 @@ var LAWN_LADS_CONFIG = {
   // (see SETUP.md section 1). It looks like
   // "https://script.google.com/macros/s/AKfycb.../exec". Paste it between the quotes.
   // Until it's filled in, the form tells people to WhatsApp or call instead.
-  quoteEndpoint: "",
+  quoteEndpoint: "https://script.google.com/macros/s/AKfycbxipaoCXGluQM-Ff_avPD1lzLDHRIM7qjL3JMI5IUGijPBdw2RAs2N1KA7LG7JiXx6Maw/exec",
 
   // Postcode checker: places we cover, with a centre point for distance checks.
   serviceAreas: [

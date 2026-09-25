@@ -2,7 +2,7 @@
 
 ## What to upload
 
-The site is now split into separate pages. Upload **everything in the zip**, keeping the folders as they are:
+The site is now split into separate pages. Everything sits in **one flat folder, with no subfolders**, so you can upload it all through GitHub's normal "Add file → Upload files" button in one go:
 
 | File | What it is |
 |---|---|
@@ -14,12 +14,12 @@ The site is now split into separate pages. Upload **everything in the zip**, kee
 | `quote.html` | Get a Free Quote: the photo quote form |
 | `contact.html` | Contact & booking |
 | `404.html` | Shown if someone lands on a page that doesn't exist |
-| `assets/config.js` | **Your settings** (phone, WhatsApp, email, booking link, quote inbox, areas) |
-| `assets/site.css`, `assets/site.js` | The look and the behaviour, shared by every page |
-| `images/` | All photos |
+| `config.js` | **Your settings** (phone, WhatsApp, email, booking link, quote inbox, areas) |
+| `site.css`, `site.js` | The look and the behaviour, shared by every page |
+| `*.jpg` | The before/after photos |
 | `sitemap.xml`, `robots.txt` | Help Google find every page. Submit the sitemap in Google Search Console once the site is live |
 
-The old `before.jpg` and `after.jpg` from the first version aren't used any more.
+The old `before.jpg` and `after.jpg` from the first version aren't used any more. You can delete them from GitHub or leave them.
 
 **Links use `.html` names** (e.g. `services.html`), so they work the same on Vercel, Cloudflare Pages and GitHub Pages without any extra setup. If you're on Cloudflare Pages, it will quietly redirect `/services.html` to `/services`. That's fine.
 
@@ -36,7 +36,7 @@ The "Get a Free Quote" form sends each request, photos attached, to **quotes@the
 3. FormSubmit will email quotes@ with an **"Activate Form"** button. Click it. Until you do, requests don't get delivered, and the first real customer would see FormSubmit's confirmation page instead of the thank-you message. That's why the test comes first.
 4. Send one more test. It should arrive as a table with the photos attached, and you should land back on the site with the thank-you message.
 5. **Optional, but recommended:** after activating, FormSubmit gives you a random alias (something like `https://formsubmit.co/8f3a…`). Put it in two places so your email address isn't sitting in the page code for spam bots to find:
-   - `quoteFormAction` in `assets/config.js`
+   - `quoteFormAction` in `config.js`
    - the `action="…"` on the `<form id="quote-form">` line in `quote.html`
 
 **What each quote email includes:** name, phone, email, postcode, service, lawn size, description, the number of photos, and an `area_check` line. That line tells you whether the postcode is in your area. Examples: `In area (Barwell)`, or `OUTSIDE — 4.1 mi from Hinckley`. Anything outside the area also gets **(OUTSIDE AREA)** in the subject line. Look back over those every so often to see where demand is coming from before you decide where to expand.
@@ -49,7 +49,7 @@ The "Get a Free Quote" form sends each request, photos attached, to **quotes@the
 
 ---
 
-## 2. Settings: `assets/config.js`
+## 2. Settings: `config.js`
 
 Every phone, WhatsApp, email and booking link on every page comes from this one file:
 
@@ -78,7 +78,7 @@ It looks up the postcode with **postcodes.io**, a free UK postcode service that 
 
 This isn't an exact boundary map, and the site doesn't pretend it is. Anyone just outside can still send a request.
 
-**To start covering somewhere new**, add it to `serviceAreas` in `assets/config.js` with its name exactly as postcodes.io spells the parish or town, e.g. `{ name: "Stoney Stanton", lat: 52.549, lon: -1.278 }`, and add it to the "Covering:" list in `index.html` and the areas line in `about.html`.
+**To start covering somewhere new**, add it to `serviceAreas` in `config.js` with its name exactly as postcodes.io spells the parish or town, e.g. `{ name: "Stoney Stanton", lat: 52.549, lon: -1.278 }`, and add it to the "Covering:" list in `index.html` and the areas line in `about.html`.
 
 ---
 
@@ -86,7 +86,7 @@ This isn't an exact boundary map, and the site doesn't pretend it is. Anyone jus
 
 `our-work.html` has a comment explaining how. In short:
 
-1. Put the two photos in `images/`, e.g. `hedge-1-before.jpg` and `hedge-1-after.jpg`. Phone photos are fine. Keep them to about 1200px on the long side if you can.
+1. Upload the two photos alongside the other files (not in a folder), e.g. `hedge-1-before.jpg` and `hedge-1-after.jpg`. Phone photos are fine. Keep them to about 1200px on the long side if you can.
 2. In `our-work.html`, copy one `<article class="job">…</article>` block, then change `data-category` to one of `mowing`, `overgrown`, `tidy`, `hedge` or `oneoff`. After that, update the image paths, the `width`/`height`, the alt text, the title, the note and the two captions. The first photo's label says "Before". You can change it to "During" for a mid-job shot, as on the shrub job.
 3. The filter buttons update themselves. Only categories that have jobs get a button, so there are never empty tabs.
 4. The home page shows your two best jobs. To change which two, swap the `<article class="job">` blocks in `index.html`.

@@ -37,16 +37,20 @@ people recognise.
    Also, the "after" photo for the border job was taken in the dark, so it
    looks worse than the "before".
 
-## The three directions
+## The directions
 
 | | Idea | Why it reads as human | Risk |
 |---|---|---|---|
 | **A. The leaflet** (`a-leaflet-*.html`) | Looks like the flyer that comes through Hinckley letterboxes. It has huge condensed type, a yellow price starburst, a "small print" box and tear-off phone number tabs you can tap | It borrows from something local and physical, not from a web template | It can tip into gimmicky. The tear-off tabs are the whole joke, so use them once |
 | **B. Hi, I'm Finley** (`b-personal-*.html`) | A plain, personal page. It has a serif heading, a photo of him, a menu-style price list, jobs described in plain sentences and real reviews | A voice and a face are the hardest things to fake. It's also the calmest and the easiest to keep up to date | It needs the photo and the reviews. Without them it's just a plain site |
 | **C. The job book** (`c-job-book-*.html`) | The site as a dated log of every job, on squared-paper styling with typewriter-style type, a rates card and a postcode table | Being specific (dates, villages, postcodes) is the opposite of generic AI copy | It only works if the log gets updated. A stale "last entry" looks worse than having no log |
+| **D. One page** (`d-one-page-*.html`) | The whole site on one screen, like a business card: who, where, prices, a big phone number and four photos. No menu | AI tools overbuild. A brand-new one-person business with six pages looks padded, and one honest page doesn't | Less text for Google to match, and no room for reviews. The FAQ and privacy pages could stay as extra pages |
+| **E. Stripes** (`e-stripes-*.html`) | A proper small-business brand built on mown-lawn stripes. It has a slab-serif wordmark, a round badge and a rough map of the villages he covers | It looks like a designer made it on purpose, and the village map is specific to Hinckley | It's the most polished, so it says "a lad did this" the least. The badge would need a proper logo to hold up |
+| **F. Reels** (`f-reels-*.html`) | Built around TikTok: short job videos, a before/after slider and the @thelawnladofficial handle front and centre | Real video of real jobs is the hardest thing to fake | It only works if he actually posts job videos. Most people paying for a mow in Hinckley aren't on TikTok, so the phone number has to stay obvious. Embedding TikTok would load its tracking scripts and break the site's no-third-party rule, so link out or host the short clips on the site itself. The slider needs before/after photos taken from the same spot |
 
 **Recommendation: B**, borrowing C's idea of dated, located job entries for
-the Our Work page.
+the Our Work page. If keeping a site updated sounds like a chore, go with
+**D** instead, written in B's voice.
 
 ## Changes that matter more than any redesign
 

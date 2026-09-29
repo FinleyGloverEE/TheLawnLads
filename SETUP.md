@@ -105,9 +105,9 @@ It looks up the postcode with **postcodes.io**, a free UK postcode service that 
 - **"That's outside the area we cover right now"**: further away than that. People still get the option to ask anyway.
 - **If postcodes.io is down**, it falls back to a rough list of postcode sectors (LE10 0–3, LE9 4, LE9 7, LE9 8, CV13 6). In that case it says "we'll confirm when we reply" instead of giving a firm answer. Those sectors also cover a few nearby villages (Stoney Stanton and Aston Flamville, for example), so treat these results as approximate.
 
-This isn't an exact boundary map, and the site doesn't pretend it is. Anyone just outside can still send a request.
+**The map on the home page** shades the same places: the parish boundaries for the villages, plus Hinckley town (which has no parish of its own). It's drawn from OpenStreetMap data into the page itself, so no map service is contacted. It's a close guide rather than the final word, because the checker also accepts a matching council ward or built-up area. So the page sends people near the edge to the postcode checker, and anyone just outside can still send a request.
 
-**To start covering somewhere new**, add it to `serviceAreas` in `config.js` with its name exactly as postcodes.io spells the parish or town, e.g. `{ name: "Stoney Stanton", lat: 52.549, lon: -1.278 }`, and add it to the "Covering:" list in `index.html` and the areas line in `about.html`.
+**To start covering somewhere new**, add it to `serviceAreas` in `config.js` with its name exactly as postcodes.io spells the parish or town, e.g. `{ name: "Stoney Stanton", lat: 52.549, lon: -1.278 }`. Then redraw the map with `python3 _map/build-map.py` (first time: `pip install shapely fonttools brotli`; instructions are at the top of the script), and add the place to the paragraph beside the map in `index.html` and the areas line in `about.html`. The site tests fail if the map and `config.js` list different places.
 
 ---
 

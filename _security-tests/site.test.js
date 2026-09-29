@@ -176,6 +176,11 @@ async function main() {
     await setup(context, state);
     const page = await context.newPage(); const problems = []; watch(page, problems);
     await page.goto(base + "index.html");
+    const places = await page.evaluate(() => ({
+      map: Array.from(document.querySelectorAll(".map-town text")).map((t) => t.textContent),
+      config: window.LAWN_LADS_CONFIG.serviceAreas.map((a) => a.name)
+    }));
+    check("area map shows the same places as config.js (if not, run _map/build-map.py)", places.map.join() === places.config.join(), JSON.stringify(places));
     for (const [input, expect] of [["le101aa", /We cover your area/], ["CV11 4AA", /just outside|outside the area/], ["ZZ99 9ZZ", /couldn't find/], ['<img src=x onerror=alert(1)>', /doesn't look like a full UK postcode/]]) {
       await page.fill("#checker-postcode", input);
       await page.click("#checker-form button[type=submit]");

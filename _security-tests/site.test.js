@@ -117,6 +117,11 @@ async function main() {
   const state = {};
 
   console.log("Every page: CSP, script errors, links, layout, fonts");
+  // Pages load site.css?v=N so browsers fetch the new stylesheet with new pages; one page left
+  // on an old number would get stale styles for up to 10 minutes after an update.
+  const cssRefs = PAGES.map((p) => (fs.readFileSync(path.join(ROOT, p), "utf8").match(/href="\/?(site\.css[^"]*)"/) || [])[1]);
+  check("every page loads the same versioned stylesheet (site.css?v=N)", cssRefs.every((r) => r && /\?v=\d+$/.test(r) && r === cssRefs[0]),
+    PAGES.map((p, i) => p + ": " + cssRefs[i]).join(", "));
   for (const width of [390, 1280]) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, ignoreHTTPSErrors: true });
     await setup(context, state);

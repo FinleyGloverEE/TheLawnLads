@@ -16,7 +16,7 @@ The site is now split into separate pages. Everything sits in **one flat folder,
 | `404.html` | Shown if someone lands on a page that doesn't exist |
 | `config.js` | **Your settings** (phone, WhatsApp, email, booking link, quote form address, areas) |
 | `quote-form-google-script.gs` | The quote-form receiver that runs in Google Apps Script. It doesn't need uploading to GitHub (see section 1) |
-| `site.css`, `site.js` | The look and the behaviour, shared by every page |
+| `site.css`, `site.js` | The look and the behaviour, shared by every page. Every page loads the stylesheet as `site.css?v=2`: after changing `site.css`, raise that number on all 9 pages, or visitors' browsers can mix the new pages with the old stylesheet for up to 10 minutes. The site tests check the pages all match |
 | `*.woff2`, `FONT-LICENSE.txt` | The two fonts (Archivo Black and Atkinson Hyperlegible), served from your own site instead of Google, plus their free licence |
 | `_config.yml` | Tells GitHub Pages not to publish your notes (`SETUP.md`, `SECURITY.md`, the privacy draft) or the Google Script code |
 | `SECURITY.md` | Security review, limits, and what to do if the form is ever spammed. **Read section 1 of it after any security update** |

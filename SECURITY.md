@@ -297,7 +297,7 @@ Why each part is there:
 
 **The quote page only** also allows `https://challenges.cloudflare.com` in `script-src` and `frame-src`, for the Turnstile bot check. That's the address Cloudflare documents for it. Nothing loads from there until a site key is set in `config.js`, and the other 7 pages stay without it.
 
-**Adding a new service** (analytics, a Cal.com embed, a map, a review widget): add its domain to the right directive **on all 9 pages** (including `privacy.html` and `404.html`), then check the browser console for "Refused to…" messages. Adding a page: copy the whole `<head>` from an existing page. Only add `unsafe-inline` or `unsafe-eval` if something genuinely can't work without it, and write down why here.
+**Adding a new service** (analytics, a Cal.com embed, a map, a review widget): the home page's area map isn't one, because it's drawn into the page (`_map/build-map.py`) and loads nothing. For a real service, add its domain to the right directive **on all 9 pages** (including `privacy.html` and `404.html`), then check the browser console for "Refused to…" messages. Adding a page: copy the whole `<head>` from an existing page. Only add `unsafe-inline` or `unsafe-eval` if something genuinely can't work without it, and write down why here.
 
 `Referrer-Policy: strict-origin-when-cross-origin` (via `<meta name="referrer">`) means other sites only see `thelawnlads.co.uk`, never a full address such as `quote.html?postcode=LE10…`.
 

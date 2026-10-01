@@ -71,6 +71,15 @@ const FAKE_TURNSTILE = `(function () {
   };
 })();`;
 
+// Fake Cloudflare Web Analytics beacon: like the real one it finds its settings via data-cf-beacon
+// and reports with navigator.sendBeacon to cloudflareinsights.com (so the CSP for both is exercised).
+const FAKE_BEACON = `(function () {
+  var el = document.currentScript || document.querySelector("script[data-cf-beacon]");
+  var cfg = JSON.parse(el.getAttribute("data-cf-beacon"));
+  window.__beacon = { token: cfg.token };
+  navigator.sendBeacon("https://cloudflareinsights.com/cdn-cgi/rum", JSON.stringify({ token: cfg.token, page: location.pathname }));
+})();`;
+
 async function setup(context, state) {
   state.requests = []; state.posts = []; state.endpointReply = { ok: true };
   // Only for comparing against the old Google-hosted fonts: GF_DIR holds a saved copy of Google's CSS and font files.
@@ -79,6 +88,9 @@ async function setup(context, state) {
     await context.route("https://fonts.gstatic.com/**", (r) => r.fulfill({ status: 200, contentType: "font/woff2", headers: { "access-control-allow-origin": "*" }, body: fs.readFileSync(path.join(process.env.GF_DIR, path.basename(new URL(r.request().url()).pathname))) }));
   }
   context.on("request", (r) => state.requests.push(r.url()));
+  state.beacons = [];
+  await context.route("https://static.cloudflareinsights.com/**", (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: FAKE_BEACON }));
+  await context.route("https://cloudflareinsights.com/**", (r) => { state.beacons.push(r.request().postData()); r.fulfill({ status: 204, body: "" }); });
   // config.js has a Turnstile site key, so the quote page loads Cloudflare's widget: use the fake one
   await context.route("https://challenges.cloudflare.com/**", (r) => /api\.js/.test(r.request().url())
     ? r.fulfill({ status: 200, contentType: "text/javascript", body: FAKE_TURNSTILE })
@@ -161,8 +173,12 @@ async function main() {
       check(tag + " target=_blank links have noopener", info.blank === 0);
       check(tag + " footer links to the privacy notice", info.privacyLink);
       const external = state.requests.filter((u) => !u.startsWith(base) && !/^(data|blob):/.test(u) &&
+        !/^https:\/\/(static\.)?cloudflareinsights\.com\//.test(u) &&                     // visitor statistics, every page
         !(p === "quote.html" && u.startsWith("https://challenges.cloudflare.com/")));   // the bot check, quote page only
-      check(tag + (p === "quote.html" ? " no third-party requests on load except the bot check" : " no third-party requests on load"), external.length === 0, external.join(", "));
+      check(tag + " no third-party requests on load except Cloudflare statistics" + (p === "quote.html" ? " and the bot check" : ""), external.length === 0, external.join(", "));
+      const token = (fs.readFileSync(path.join(ROOT, "config.js"), "utf8").match(/analyticsToken: "([^"]*)"/) || [])[1];
+      const beacon = await page.evaluate(() => window.__beacon || null);
+      check(tag + " visitor statistics loaded with the site's token and allowed by CSP", beacon && beacon.token === token && state.requests.some((u) => u === "https://cloudflareinsights.com/cdn-cgi/rum"), JSON.stringify(beacon));
       if (width === 390) {
         const internal = [...new Set(info.links.filter((h) => !/^(https?:|mailto:|tel:|#)/.test(h)).map((h) => new URL(h, base + p).pathname))];
         const broken = [];
@@ -172,6 +188,45 @@ async function main() {
       if (shotsDir) { fs.mkdirSync(shotsDir, { recursive: true }); await page.screenshot({ path: path.join(shotsDir, p.replace(".html", "") + "-" + width + ".png"), fullPage: true }); }
       await page.close();
     }
+    await context.close();
+  }
+
+  console.log("Visitor statistics: opt-out and privacy signals");
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 900 } });
+    await setup(context, state);
+    const page = await context.newPage(); const problems = []; watch(page, problems);
+    await page.goto(base + "privacy.html");
+    check("privacy page shows the switch and says statistics are on", (await page.isVisible("[data-stats-toggle]")) && /are on for this device/.test(await page.textContent("[data-stats-status]")));
+    await page.click("[data-stats-toggle]");
+    check("after opting out it says they're off and offers to turn them back on", /are off on this device/.test(await page.textContent("[data-stats-status]")) && /back on/.test(await page.textContent("[data-stats-toggle]")));
+    state.requests = []; await page.goto(base + "index.html"); await page.waitForTimeout(300);
+    check("opted out: next page loads no statistics script at all", !state.requests.some((u) => /cloudflareinsights/.test(u)) && (await page.evaluate(() => !window.__beacon)));
+    await page.goto(base + "privacy.html"); await page.click("[data-stats-toggle]");
+    state.requests = []; await page.goto(base + "services.html"); await page.waitForTimeout(300);
+    check("turned back on: statistics load again", state.requests.some((u) => /static\.cloudflareinsights\.com/.test(u)));
+    check("no errors", problems.length === 0, problems.join(" | "));
+    await context.close();
+  }
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 900 } });
+    await setup(context, state);
+    await context.addInitScript(() => Object.defineProperty(navigator, "globalPrivacyControl", { get: () => true }));
+    const page = await context.newPage();
+    state.requests = []; await page.goto(base + "index.html"); await page.waitForTimeout(300);
+    check("browser sends Global Privacy Control: not counted", !state.requests.some((u) => /cloudflareinsights/.test(u)));
+    await page.goto(base + "privacy.html");
+    check("privacy page explains the browser signal is respected", /asks websites not to track/.test(await page.textContent("[data-stats-status]")) && !(await page.isVisible("[data-stats-toggle]")));
+    await context.close();
+  }
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 900 } });
+    await setup(context, state);
+    await context.route(base + "config.js", (r) => r.fulfill({ status: 200, contentType: "text/javascript",
+      body: fs.readFileSync(path.join(ROOT, "config.js"), "utf8").replace(/analyticsToken: "[^"]*"/, 'analyticsToken: ""') }));
+    const page = await context.newPage();
+    state.requests = []; await page.goto(base + "index.html"); await page.waitForTimeout(300);
+    check("token left empty: statistics switched off", !state.requests.some((u) => /cloudflareinsights/.test(u)));
     await context.close();
   }
 

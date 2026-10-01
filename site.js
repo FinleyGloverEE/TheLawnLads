@@ -15,6 +15,39 @@
   $$("[data-email]").forEach(function (a) { a.href = "mailto:" + C.contactEmail; });
   $$("[data-email-text]").forEach(function (el) { el.textContent = C.contactEmail; });
 
+  /* ---------- visitor statistics (Cloudflare Web Analytics: no cookies) ---------- */
+  // Not loaded for anyone who opted out on the privacy page (remembered in their browser only),
+  // or whose browser sends Global Privacy Control or Do Not Track.
+  var STATS_OFF_KEY = "lawnlads-no-stats";
+  var statsOptedOut = function () { try { return window.localStorage.getItem(STATS_OFF_KEY) === "1"; } catch (e) { return false; } };
+  var browserSaysNo = navigator.globalPrivacyControl === true || navigator.doNotTrack === "1" || window.doNotTrack === "1";
+  if (/^[0-9a-f]{32}$/.test(C.analyticsToken || "") && !statsOptedOut() && !browserSaysNo) {
+    var beacon = document.createElement("script");
+    beacon.defer = true;
+    beacon.src = "https://static.cloudflareinsights.com/beacon.min.js";
+    beacon.setAttribute("data-cf-beacon", JSON.stringify({ token: C.analyticsToken }));
+    document.head.appendChild(beacon);
+  }
+  var statsBtn = $("[data-stats-toggle]"), statsNote = $("[data-stats-status]");
+  if (statsBtn && statsNote) {
+    var showStats = function () {
+      statsBtn.hidden = browserSaysNo;
+      statsBtn.textContent = statsOptedOut() ? "Turn visitor statistics back on" : "Turn off visitor statistics on this device";
+      statsNote.textContent = browserSaysNo ? "Your browser asks websites not to track it, so this device isn't counted."
+        : statsOptedOut() ? "Visitor statistics are off on this device." : "Visitor statistics are on for this device.";
+    };
+    statsBtn.addEventListener("click", function () {
+      try {
+        if (statsOptedOut()) window.localStorage.removeItem(STATS_OFF_KEY); else window.localStorage.setItem(STATS_OFF_KEY, "1");
+      } catch (e) {
+        statsNote.textContent = "Your browser didn't let us save that choice (private browsing can do this).";
+        return;
+      }
+      showStats();
+    });
+    showStats();
+  }
+
   /* ---------- mobile menu ---------- */
   var menuBtn = $(".menu-toggle");
   var nav = $("#site-nav");

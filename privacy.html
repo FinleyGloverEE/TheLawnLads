@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <!-- Security policy: which sites this page may load from or send to. See SECURITY.md before adding any new service. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://api.postcodes.io https://script.google.com https://script.googleusercontent.com; form-action 'self' https://script.google.com https://script.googleusercontent.com; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; manifest-src 'self'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cloudflareinsights.com https://api.postcodes.io https://script.google.com https://script.googleusercontent.com; form-action 'self' https://script.google.com https://script.googleusercontent.com; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; manifest-src 'self'; upgrade-insecure-requests">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Privacy Notice | The Lawn Lads</title>
@@ -21,7 +21,7 @@
 <meta property="og:url" content="https://thelawnlads.co.uk/privacy.html">
 <meta property="og:image" content="https://thelawnlads.co.uk/border-1-after.jpg">
 <meta property="og:locale" content="en_GB">
-<link rel="stylesheet" href="site.css?v=2">
+<link rel="stylesheet" href="site.css?v=3">
 </head>
 <body>
 
@@ -56,7 +56,7 @@
 
   <section class="block tight">
     <div class="legal">
-      <p class="updated">Last updated: 25 September 2026</p>
+      <p class="updated">Last updated: 1 October 2026</p>
 
       <h2>Who we are</h2>
       <p>The Lawn Lads is a lawn mowing and garden care business in Hinckley, Leicestershire, run by <strong>Finley Glover, trading as The Lawn Lads</strong>. Finley is responsible for the personal information described on this page (the &ldquo;data controller&rdquo;).</p>
@@ -74,6 +74,7 @@
 
       <h2>Why we use it</h2>
       <p>Only to reply to you, give you a price and, if you go ahead, arrange and do the work. The legal basis is that you've asked us to take these steps before entering into a contract, and then to carry out that contract (UK GDPR Article 6(1)(b)).</p>
+      <p>We also count visits to the website, to see which pages are useful and how people find us. That's in our legitimate interest in running the website, and it uses the visitor statistics described below, which don't identify you.</p>
       <p>We don't use your details for marketing, we don't add you to mailing lists, and we don't sell or give your information to anyone for their own use. You don't have to give us your details, but we can't quote without a name, a way to contact you and your postcode.</p>
 
       <h2>Photos</h2>
@@ -85,6 +86,7 @@
         <li><strong>Google</strong> (Sheets, Drive, Gmail and Apps Script): quote requests and photos are saved in The Lawn Lads' Google account, and our quote form runs on Google's servers.</li>
         <li><strong>Microsoft 365</strong>: quote requests are emailed to our business inbox.</li>
         <li><strong>Cloudflare Turnstile</strong>: checks that quote requests come from a person, not a spam bot. When you open the quote page it looks at your IP address and technical details about your browser and connection, only to tell people from bots.</li>
+        <li><strong>Cloudflare Web Analytics</strong>: counts visits to this website: which pages are viewed, which website or search sent you here, your country, and the type of device and browser. Cloudflare says it doesn't use cookies or store anything on your device, and doesn't use your IP address or browser details to identify or follow you. You can turn it off (see below).</li>
         <li><strong>postcodes.io</strong>: a free UK postcode lookup service. When you use the postcode checker, or type your postcode into the quote form, your browser sends the postcode to it (along with your IP address, as with any web request) to see whether we cover your area.</li>
         <li><strong>GitHub</strong>: hosts this website. Like most web hosts, GitHub records visitors' IP addresses for security.</li>
       </ul>
@@ -97,8 +99,12 @@
         <li><strong>If we do work for you</strong>, we keep your details and job records while you're a customer, and afterwards for as long as HMRC requires us to keep business records (currently at least 5 years after the 31 January tax return deadline for the year concerned).</li>
       </ul>
 
-      <h2>Cookies and tracking</h2>
-      <p>This website doesn't set cookies and doesn't use analytics, advertising or tracking. The only outside checks are the ones described above: the postcode lookup and, on the quote page, Cloudflare's bot check.</p>
+      <h2>Cookies and visitor statistics</h2>
+      <p>This website doesn't set cookies, and doesn't use advertising or anything that follows you across other websites. We count visits with Cloudflare Web Analytics, which doesn't use cookies either. The only other outside checks are the postcode lookup and, on the quote page, Cloudflare's bot check.</p>
+      <p>You can turn visitor statistics off for this device at any time. If your browser sends a &ldquo;Global Privacy Control&rdquo; or &ldquo;Do Not Track&rdquo; signal, we don't count you at all.</p>
+      <p class="stats-choice"><button class="btn btn-ghost" type="button" data-stats-toggle hidden>Turn off visitor statistics on this device</button> <span data-stats-status role="status"></span></p>
+      <noscript><p>JavaScript is switched off, so visitor statistics aren't running on this device.</p></noscript>
+      <p>Turning statistics off saves a small note in your browser so it remembers your choice. The note isn't sent to us or anyone else. It applies from the next page you open.</p>
 
       <h2>Your rights</h2>
       <p>You can ask us to:</p>

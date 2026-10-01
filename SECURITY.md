@@ -255,6 +255,7 @@ The website's own limits (in `site.js`): 3 photos, 10MB each before shrinking, 1
 | `quoteEndpoint` (Apps Script web app address) | **Public on purpose.** Browsers must know it to send quotes. Knowing it only lets someone *send* a quote, which is why the script checks everything | `config.js`, `quote.html` |
 | `NOTIFY_EMAIL` (`admin@`) | Not secret, but not advertised | The script (not published on the website) |
 | `turnstileSiteKey` (Cloudflare Turnstile site key) | **Public on purpose.** It only identifies the widget | `config.js` |
+| `analyticsToken` (Cloudflare Web Analytics token) | **Public on purpose.** It only says which site the visit counts belong to. Leave empty to switch statistics off | `config.js` |
 | `TURNSTILE_SECRET` (Cloudflare Turnstile secret key) | **Secret.** Anyone with it could fake the check's answers from their own server | Apps Script → Project Settings → **Script Properties** only |
 | `TURNSTILE_ENFORCE` = `yes` | Private setting | Script Properties. Delete it to go back to test mode instantly |
 | Photo folder ID, daily counters, approved website (`SITE_APPROVED`) | Private | Script Properties (created automatically) |
@@ -272,11 +273,11 @@ There are **no environment variables or API keys** to set. postcodes.io needs no
 
 ```
 default-src 'self';
-script-src 'self';
+script-src 'self' https://static.cloudflareinsights.com;
 style-src 'self';
 font-src 'self';
 img-src 'self' data: blob:;
-connect-src 'self' https://api.postcodes.io https://script.google.com https://script.googleusercontent.com;
+connect-src 'self' https://cloudflareinsights.com https://api.postcodes.io https://script.google.com https://script.googleusercontent.com;
 form-action 'self' https://script.google.com https://script.googleusercontent.com;
 frame-src 'none'; worker-src 'none'; object-src 'none';
 base-uri 'self'; manifest-src 'self';
@@ -287,10 +288,10 @@ Why each part is there:
 
 | Directive | Why |
 |---|---|
-| `script-src 'self'` | Only `config.js` and `site.js`. **No `unsafe-inline` or `unsafe-eval`.** The structured-data block on the home page isn't blocked because browsers don't run `application/ld+json` |
+| `script-src 'self' https://static.cloudflareinsights.com` | `config.js` and `site.js`, plus Cloudflare's visitor-statistics script (loaded by `site.js` only when `analyticsToken` is set and the visitor hasn't opted out). **No `unsafe-inline` or `unsafe-eval`.** The structured-data block on the home page isn't blocked because browsers don't run `application/ld+json` |
 | `style-src 'self'`, `font-src 'self'` | `site.css` and the self-hosted fonts. There are no inline styles |
 | `img-src data: blob:` | `data:` for the dropdown arrow in `site.css`. `blob:` for photo previews and shrinking on the quote form |
-| `connect-src` | postcodes.io lookups, and sending the quote to Apps Script, which redirects to `script.googleusercontent.com` for the reply |
+| `connect-src` | Visitor statistics reports to `cloudflareinsights.com`, postcodes.io lookups, and sending the quote to Apps Script, which redirects to `script.googleusercontent.com` for the reply |
 | `form-action` | Lets the form still work for visitors with JavaScript switched off |
 | `frame-src 'none'`, `object-src 'none'`, `worker-src 'none'` | Nothing on the site uses them |
 | `base-uri 'self'` | Stops an injected `<base>` tag redirecting relative links |
@@ -329,10 +330,10 @@ The privacy notice is published at **https://thelawnlads.co.uk/privacy.html**, l
 | | |
 |---|---|
 | **Data controller** | Finley Glover, trading as The Lawn Lads |
-| **What's collected** | Quote form: name, phone, email, postcode, service, lawn size, free-text description, up to 3 garden photos, the in-area check, the page address and the time. The website sets **no cookies** and uses **no analytics or tracking** |
+| **What's collected** | Quote form: name, phone, email, postcode, service, lawn size, free-text description, up to 3 garden photos, the in-area check, the page address and the time. The website sets **no cookies**. Visits are counted with cookieless **Cloudflare Web Analytics** (visitors can opt out on the privacy page; Global Privacy Control / Do Not Track are respected). No advertising or cross-site tracking |
 | **Why / legal basis** | To reply with a quote and arrange the work: steps before a contract, and the contract (UK GDPR Article 6(1)(b)) |
 | **Where it's stored** | Your Google account: the **Sheet**, the **Drive** folder and, usually, a copy in the Gmail **Sent** folder. The `admin@thelawnlads.co.uk` inbox (Microsoft 365). Your phone, if you reply on WhatsApp |
-| **Who else handles it** | Google, Microsoft, **Cloudflare Turnstile** (IP address and browser details on the quote page, only to spot bots), **postcodes.io** (postcode plus, like any web request, the visitor's IP address), **GitHub** (hosts the site and logs visitors' IP addresses for security). Cal.com, WhatsApp, Facebook and TikTok only if the visitor chooses to use them |
+| **Who else handles it** | Google, Microsoft, **Cloudflare Turnstile** (IP address and browser details on the quote page, only to spot bots), **Cloudflare Web Analytics** (page, referrer, country, device; no cookies, every page), **postcodes.io** (postcode plus, like any web request, the visitor's IP address), **GitHub** (hosts the site and logs visitors' IP addresses for security). Cal.com, WhatsApp, Facebook and TikTok only if the visitor chooses to use them |
 | **How long it's kept** | Quotes that don't lead to work: **6 months**. Customers: while they're a customer, then as long as HMRC requires |
 | **Photos** | Browsers strip hidden data such as GPS location before sending |
 
@@ -447,6 +448,7 @@ node _security-tests/site.test.js    # all pages in real Chromium, third parties
 - [x] **Dependency audit:** no dependencies. Google Fonts removed
 - [x] **Error handling:** generic messages only
 - [x] **Logging:** outcomes logged, no personal data
+- [x] **Visitor statistics:** Cloudflare Web Analytics, cookieless, with an opt-out on the privacy page. Tested with the real beacon: no cookies set, no CSP violations
 - [x] **Privacy notice:** published and linked from every page and the form. Monthly clean-up in the script. **You:** run `setUpMonthlyCleanup`, delete old emails monthly, check the ICO fee
 - [x] **Mobile security considerations:** photo location data stripped, no app permissions used, sticky bar and forms tested at phone widths
 - [~] **Production configuration reviewed:** code yes. **You:** deploy the script, check Pages HTTPS and DNS email records

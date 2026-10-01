@@ -30,6 +30,10 @@ var LAWN_LADS_CONFIG = {
   // Leave empty and the check is switched off.
   turnstileSiteKey: "0x4AAAAAAFDeZQfw4YCJOeVp",
 
+  // Visitor statistics (Cloudflare Web Analytics): counts visits without cookies.
+  // The token is public, like everything in this file. Leave empty to switch it off.
+  analyticsToken: "36b2e009a01f44f78c07904ad7b4e114",
+
   // Postcode checker: places we cover, with a centre point for distance checks.
   serviceAreas: [
     { name: "Hinckley",      lat: 52.5413, lon: -1.3733 },

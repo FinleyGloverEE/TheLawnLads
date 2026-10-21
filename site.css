@@ -38,6 +38,22 @@
     --hard: 5px 5px 0 0 var(--shadow-color);
     --hard-sm: 3px 3px 0 0 var(--shadow-color);
     --bar-h: 64px;
+    --page-gutter: max(16px, calc((100vw - 1140px) / 2));
+    /* the home page lawn: long grass, and the stripes left behind the mower */
+    --grass-base: #7b7a45;
+    --grass-dark: #4e5631;
+    --grass-olive: #6b7340;
+    --grass-green: #5f7a3c;
+    --straw: #a89a5c;
+    --straw-2: #c0ad6e;
+    --straw-pale: #d2c48a;
+    --dandelion: #e9b824;
+    --dandelion-dk: #c7901a;
+    --stripe-a: #6e9152;
+    --stripe-b: #89a96a;
+    --cut-light: #a9c487;
+    --cut-dark: #4f7040;
+    --mower-bag: #3b3a2c;
   }
 
   /* This site always uses the light palette above, by design — no dark-mode
@@ -54,7 +70,7 @@
     background: var(--ground);
     color: var(--ink);
     font-family: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
-    padding: 0 max(16px, calc((100vw - 1140px) / 2));
+    padding: 0 var(--page-gutter);
     line-height: 1.6;
     font-size: 17px;
   }
@@ -186,13 +202,14 @@
   .header-actions .btn { padding: 9px 16px; min-height: 42px; font-size: 0.95rem; }
 
   /* ---------- hero ---------- */
-  .hero {
+  .mow-stage {
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
+    grid-template-columns: 1fr 1fr;
     gap: 48px;
     align-items: center;
     padding-block: 56px 48px;
   }
+  .hero-copy { min-width: 0; }
 
   .eyebrow {
     display: inline-flex;
@@ -244,7 +261,8 @@
     border-bottom: 3px solid var(--ink);
   }
   .checker-body { padding: 24px 24px 26px; }
-  .checker h2 { font-size: clamp(1.4rem, 2.4vw, 1.75rem); margin: 0 0 6px; line-height: 1.1; }
+  .checker h3 { font-family: "Archivo Black", "Atkinson Hyperlegible", sans-serif; font-weight: 400; font-size: clamp(1.4rem, 2.4vw, 1.75rem); margin: 0 0 6px; line-height: 1.1; }
+  .areas-intro .checker { margin-top: 26px; }
   .checker-sub { margin: 0 0 16px; color: var(--ink-soft); font-size: 0.98rem; }
   .checker label { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
   .checker-row { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -601,32 +619,6 @@
   .about-evidence ul { margin: 0; padding: 0 0 0 1.1em; color: var(--ink-soft); }
   .about-evidence li { margin-bottom: 6px; }
 
-  /* ---------- process ---------- */
-  .process {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 22px;
-  }
-  .step {
-    border: 2px solid var(--ink);
-    border-radius: 12px;
-    padding: 22px 20px 24px;
-    background: var(--surface);
-  }
-  .step:nth-child(2) { transform: rotate(0.5deg); }
-  .step:nth-child(4) { transform: rotate(-0.5deg); }
-  .step .num {
-    font-family: "Archivo Black", sans-serif;
-    color: var(--accent);
-    -webkit-text-stroke: 1.5px var(--ink);
-    font-size: 2.4rem;
-    line-height: 1;
-    display: block;
-    margin-bottom: 10px;
-  }
-  .step h3 { font-size: 1.15rem; margin: 0 0 8px; }
-  .step p { margin: 0; color: var(--ink-soft); font-size: 0.96rem; }
-
   /* ---------- quote form ---------- */
   .quote {
     display: grid;
@@ -946,7 +938,7 @@
   }
 
   @media (max-width: 820px) {
-    .hero { grid-template-columns: 1fr; padding-block: 34px 34px; gap: 34px; }
+    .mow-stage { grid-template-columns: 1fr; padding-block: 34px 34px; gap: 34px; }
     .checker { transform: none; }
     .quote { grid-template-columns: 1fr; gap: 28px; }
     .about { grid-template-columns: 1fr; }
@@ -1087,6 +1079,242 @@
   .cta-band h2 { margin: 0 0 6px; font-size: clamp(1.6rem, 2.8vw, 2.1rem); line-height: 1.1; }
   .cta-band p { margin: 0; color: var(--ink-soft); max-width: 46ch; }
   .cta-band .hero-ctas { flex: 0 1 auto; }
+
+  /* ---------- home: scroll effects ----------
+     These first rules are the still version: what people get with "reduce motion" switched on,
+     with JavaScript off, or on an older browser. The pinned, animated version only switches on
+     inside the media queries further down, and site.js checks the same query (FX_QUERY) before
+     animating anything, so the two always agree. */
+
+  /* the lawn in the hero */
+  .lawn-card {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 3px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: var(--hard);
+    overflow: hidden;
+  }
+  .lawn-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    padding: 10px 16px;
+    border-bottom: 3px solid var(--ink);
+    font-size: 0.92rem;
+    line-height: 1.3;
+  }
+  .lawn-job { font-weight: 700; }
+  .lawn-status { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .lawn-bar {
+    flex: 1 1 80px;
+    min-width: 80px;
+    height: 10px;
+    border: 2px solid var(--ink);
+    border-radius: 5px;
+    background: var(--surface-tint);
+    overflow: hidden;
+  }
+  .lawn-bar span { display: block; height: 100%; width: 0; background: var(--green-mid); }
+  .lawn-wrap {
+    position: relative;
+    height: 360px;
+    /* shows if the drawing never runs: a freshly striped lawn */
+    background: repeating-linear-gradient(180deg, var(--stripe-a) 0 60px, var(--stripe-b) 60px 120px);
+  }
+  .lawn-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .mow-hint { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-weight: 700; font-size: 0.92rem; color: var(--green-deep); }
+
+  /* our work: a stack of photos */
+  .work-stage { display: grid; gap: 30px; }
+  .work-copy .section-head { margin-bottom: 18px; }
+  .stack { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
+  .stack-photo {
+    position: relative;
+    margin: 0;
+    aspect-ratio: 3 / 4;
+    background: var(--surface);
+    border: 3px solid var(--ink);
+    border-radius: 12px;
+    box-shadow: var(--hard-sm);
+    overflow: hidden;
+  }
+  .stack-photo img { display: block; width: 100%; height: 100%; object-fit: cover; filter: saturate(0.94) contrast(1.03); }
+  .stack-photo .ba-tag { top: 10px; left: 10px; }
+  .stack-photo figcaption {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    line-height: 1.3;
+    background: var(--surface);
+    border-top: 2px solid var(--ink);
+  }
+  .stack-caption { display: grid; justify-items: start; gap: 4px; margin-bottom: 16px; }
+  .stack-caption.swap { animation: caption-in 0.35s ease; }
+  @keyframes caption-in { from { transform: translateY(6px); opacity: 0.45; } to { transform: none; opacity: 1; } }
+  .cap-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .cap-tag {
+    background: var(--accent);
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    transform: rotate(-3deg);
+  }
+  .cap-tag.after { background: var(--surface); }
+  .cap-dots { display: flex; gap: 5px; }
+  .cap-dots i { width: 10px; height: 10px; border: 2px solid var(--ink); border-radius: 2px; transition: background-color 0.2s; }
+  .cap-dots i.seen { background: var(--clover); }
+  .cap-dots i.on { background: var(--green-deep); }
+  .stack-caption h3 { margin: 0; font-size: 1.3rem; }
+  .stack-caption p { margin: 0; color: var(--ink-soft); }
+
+  /* how it works: a path that gets mown */
+  .how-layout { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 24px 56px; align-items: start; }
+  .how-path { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 0 22px; }
+  .how-track { position: relative; }
+  .how-track-in {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border: 3px solid var(--ink);
+    border-radius: 17px;
+    background: repeating-linear-gradient(118deg, var(--straw) 0 3px, var(--grass-olive) 3px 5px, var(--straw-2) 5px 8px, var(--grass-dark) 8px 9px);
+  }
+  .how-fill {
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 100%;
+    background: repeating-linear-gradient(180deg, var(--stripe-a) 0 28px, var(--stripe-b) 28px 56px);
+  }
+  .how-mower { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); }
+  .how-mower .mm-handle { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+  .how-mower .mm-bag { fill: var(--mower-bag); stroke: var(--ink); stroke-width: 2; }
+  .how-mower .mm-wheel { fill: var(--ink); }
+  .how-mower .mm-deck { fill: var(--accent); stroke: var(--ink); stroke-width: 2; }
+  .how-mower .mm-engine { fill: var(--mower-bag); stroke: var(--ink); stroke-width: 1.5; }
+  .how-steps { list-style: none; margin: 0; padding: 6px 0; display: grid; gap: 40px; }
+  .how-step { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .how-num {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    font-family: "Archivo Black", sans-serif;
+    font-size: 1.05rem;
+    background: var(--green-deep);
+    color: #fffcf4;
+    border: 3px solid var(--ink);
+    border-radius: 10px;
+    transform: rotate(-4deg);
+    box-shadow: var(--hard-sm);
+  }
+  .how-step h3 { font-size: 1.15rem; margin: 2px 0 6px; }
+  .how-step p { margin: 0; color: var(--ink-soft); font-size: 0.96rem; max-width: 48ch; }
+
+  @media (max-width: 820px) {
+    .lawn-wrap { height: 260px; }
+    .stack { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .how-layout { grid-template-columns: 1fr; }
+  }
+
+  /* The animated version. Keep this query the same as FX_QUERY in site.js. */
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+    /* Pinned scenes: the section is tall, and its stage sticks to the top of the screen while you
+       scroll through it. How far through you are drives the animation. */
+    .mow-scene { height: 240vh; }
+    section.block.work-scene { height: 400vh; padding-block: 0; }
+    .mow-stage, .work-stage {
+      position: sticky;
+      top: env(safe-area-inset-top, 0px);
+      height: calc(100vh - env(safe-area-inset-top, 0px));
+      height: calc(100svh - env(safe-area-inset-top, 0px));
+      padding-block: clamp(14px, 3vh, 34px);
+    }
+
+    .mow-stage { grid-template-rows: minmax(0, 1fr); }
+    .lawn-card { height: 100%; max-height: 600px; }
+    .lawn-wrap {
+      flex: 1;
+      height: auto;
+      min-height: 140px;
+      /* long grass, for the moment before the drawing starts */
+      background: repeating-linear-gradient(118deg, var(--straw) 0 3px, var(--grass-olive) 3px 5px, var(--straw-2) 5px 8px, var(--grass-dark) 8px 9px);
+    }
+    .mow-hint .arrow { display: inline-block; animation: nudge 1.4s ease-in-out infinite; }
+    @keyframes nudge { 50% { transform: translateY(4px); } }
+
+    /* The stage runs to the edges of the screen, so photos flicked off the side go all the way out */
+    .work-stage {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: minmax(0, 1fr);
+      align-items: center;
+      gap: 40px;
+      margin-inline: calc(-1 * var(--page-gutter));
+      padding-inline: var(--page-gutter);
+      overflow: hidden;
+    }
+    .stack-wrap { position: relative; height: 100%; min-height: 0; display: grid; place-items: center; }
+    .stack { display: block; position: relative; width: var(--stack-w, 300px); height: var(--stack-h, 400px); }
+    .stack-photo {
+      position: absolute;
+      inset: 0;
+      aspect-ratio: auto;
+      box-shadow: var(--hard);
+      transform-origin: 50% 90%;
+      will-change: transform, opacity;
+    }
+    .stack-photo:nth-child(1) { z-index: 6; }
+    .stack-photo:nth-child(2) { z-index: 5; }
+    .stack-photo:nth-child(3) { z-index: 4; }
+    .stack-photo:nth-child(4) { z-index: 3; }
+    .stack-photo:nth-child(5) { z-index: 2; }
+    .stack-photo:nth-child(6) { z-index: 1; }
+    .stack-photo figcaption { display: none; }
+
+    /* price cards tilt into place as they arrive (site.js sets --rise and --tilt) */
+    .home-prices .price-card { transform: translateY(var(--rise, 0px)) rotate(calc(var(--rest, 0deg) + var(--tilt, 0deg))); }
+    .home-prices .price-card.featured { --rest: -0.7deg; }
+
+    /* the path starts long and gets mown as you read down (site.js sets its height) */
+    .how-fill { height: 0; border-bottom: 2px solid var(--ink); }
+    .how-mower { top: -10px; bottom: auto; }
+    .how-num { background: var(--surface); color: var(--ink); transform: none; box-shadow: none; transition: background-color 0.3s, color 0.3s, transform 0.3s, box-shadow 0.3s; }
+    .how-step.done .how-num { background: var(--green-deep); color: #fffcf4; transform: rotate(-4deg); box-shadow: var(--hard-sm); }
+    .how-steps { gap: clamp(32px, 7vh, 64px); }
+    .how-layout .section-head { position: sticky; top: 24px; }
+  }
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) and (max-width: 820px) {
+    .mow-stage { grid-template-rows: auto minmax(0, 1fr); gap: 16px; }
+    .lawn-card { max-height: none; }
+    .work-stage { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); align-items: stretch; gap: 14px; }
+    .how-layout .section-head { position: static; }
+  }
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) and (max-width: 760px) {
+    /* leave room for the call / WhatsApp / quote bar, which shows here (it stays hidden over the lawn) */
+    .work-stage { padding-bottom: calc(clamp(14px, 3vh, 34px) + var(--bar-h) + env(safe-area-inset-bottom)); }
+  }
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) and (max-width: 560px) {
+    .hero .eyebrow { margin-bottom: 14px; }
+    .hero h1 { font-size: 2rem; margin-bottom: 14px; }
+    .hero .hero-ctas { gap: 10px; }
+    .hero .hero-ctas .btn { flex: 1 1 0; padding-inline: 10px; }
+    .hero-wa { margin-top: 12px; }
+    .work-copy .section-head p { display: none; }
+    .stack-caption h3 { font-size: 1.1rem; }
+  }
+  /* on short screens the lawn needs the room more than the intro line does */
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) and (max-height: 640px),
+         (scripting: enabled) and (prefers-reduced-motion: no-preference) and (max-width: 820px) and (max-height: 780px) {
+    .hero p.lede { display: none; }
+  }
 
   /* ---------- services page ---------- */
   .service-detail {

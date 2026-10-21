@@ -21,7 +21,7 @@
 <meta property="og:url" content="https://thelawnlads.co.uk/">
 <meta property="og:image" content="https://thelawnlads.co.uk/border-1-after.jpg">
 <meta property="og:locale" content="en_GB">
-<link rel="stylesheet" href="site.css?v=3">
+<link rel="stylesheet" href="site.css?v=4">
 <link rel="preconnect" href="https://api.postcodes.io" crossorigin>
 <script type="application/ld+json">
 {
@@ -87,32 +87,31 @@
 
 <main id="main">
 
-  <section class="hero" id="top" data-bar-hide>
-    <div>
-      <span class="eyebrow">Hinckley &amp; LE10 · Est. 2026</span>
-      <h1>Hinckley lawn care from a lad who <span class="mark-hl">actually turns up.</span></h1>
-      <p class="lede">The Lawn Lads keeps gardens around Hinckley tidy — regular mowing, edging and tidy-ups, run by a local 16-year-old who knows the streets because he grew up on them.</p>
-      <div class="hero-ctas">
-        <a class="btn btn-primary" href="quote.html" data-cta="hero-quote">Get a Free Quote</a>
-        <a class="btn btn-ghost" data-book href="https://cal.com/thelawnlads" target="_blank" rel="noopener noreferrer" data-cta="hero-book">Book a Lawn Cut</a>
+  <!-- Scroll effect: on phones and computers that allow motion, this section holds still while
+       scrolling mows the lawn (site.js draws it). Otherwise it's an ordinary hero with a half-cut lawn. -->
+  <section class="hero mow-scene" id="top" data-bar-hide>
+    <div class="mow-stage">
+      <div class="hero-copy">
+        <span class="eyebrow">Hinckley &amp; LE10 · Est. 2026</span>
+        <h1>Hinckley lawn care from a lad who <span class="mark-hl">actually turns up.</span></h1>
+        <p class="lede">The Lawn Lads keeps gardens around Hinckley tidy — regular mowing, edging and tidy-ups, run by a local 16-year-old who knows the streets because he grew up on them.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="quote.html" data-cta="hero-quote">Get a Free Quote</a>
+          <a class="btn btn-ghost" data-book href="https://cal.com/thelawnlads" target="_blank" rel="noopener noreferrer" data-cta="hero-book">Book a Lawn Cut</a>
+        </div>
+        <p class="hero-wa">Quicker to send a photo? <a class="text-link" data-wa href="https://wa.me/447912613180" target="_blank" rel="noopener noreferrer">WhatsApp us</a></p>
+        <p class="mow-hint" id="mow-hint" hidden>Scroll to mow it <span class="arrow" aria-hidden="true">↓</span></p>
       </div>
-      <p class="hero-wa">Quicker to send a photo? <a class="text-link" data-wa href="https://wa.me/447912613180" target="_blank" rel="noopener noreferrer">WhatsApp us</a></p>
-    </div>
-
-    <div class="checker" id="area-check">
-      <div class="checker-lawn" aria-hidden="true"></div>
-      <div class="checker-body">
-        <h2>Do we cover your area?</h2>
-        <p class="checker-sub">Pop your postcode in — it takes a second.</p>
-        <form id="checker-form" novalidate>
-          <label for="checker-postcode">Your postcode</label>
-          <div class="checker-row">
-            <input id="checker-postcode" name="checker-postcode" type="text" inputmode="text" autocomplete="postal-code" autocapitalize="characters" spellcheck="false" placeholder="e.g. LE10 1AA" maxlength="10" aria-describedby="checker-result">
-            <button class="btn btn-accent" type="submit">Check availability</button>
-          </div>
-        </form>
-        <div class="check-result" id="checker-result" role="status" aria-live="polite"></div>
-      </div>
+      <figure class="lawn-card">
+        <div class="lawn-head">
+          <span class="lawn-job">Mow &amp; strim · £20</span>
+          <span class="lawn-status" id="lawn-status" hidden></span>
+          <span class="lawn-bar" id="lawn-bar" hidden><span></span></span>
+        </div>
+        <div class="lawn-wrap" id="lawn-wrap">
+          <canvas id="lawn" role="img" aria-label="Drawing of an overgrown lawn being mown into neat stripes"></canvas>
+        </div>
+      </figure>
     </div>
   </section>
 
@@ -120,7 +119,22 @@
     <div class="areas-intro">
       <span class="eyebrow">Where we cover</span>
       <h2 id="areas-title">If you're in the green, I'll come to you</h2>
-      <p>Hinckley, plus Burbage, Barwell, Earl Shilton, Stoke Golding and Sapcote. Near the edge of the green? Pop your postcode in the <a class="text-link" href="#area-check">checker</a> to make sure, and if you're just outside, ask anyway.</p>
+      <p>Hinckley, plus Burbage, Barwell, Earl Shilton, Stoke Golding and Sapcote. Near the edge of the green? Pop your postcode in below to make sure, and if you're just outside, ask anyway.</p>
+      <div class="checker" id="area-check">
+        <div class="checker-lawn" aria-hidden="true"></div>
+        <div class="checker-body">
+          <h3>Do we cover your area?</h3>
+          <p class="checker-sub">Pop your postcode in — it takes a second.</p>
+          <form id="checker-form" novalidate>
+            <label for="checker-postcode">Your postcode</label>
+            <div class="checker-row">
+              <input id="checker-postcode" name="checker-postcode" type="text" inputmode="text" autocomplete="postal-code" autocapitalize="characters" spellcheck="false" placeholder="e.g. LE10 1AA" maxlength="10" aria-describedby="checker-result">
+              <button class="btn btn-accent" type="submit">Check availability</button>
+            </div>
+          </form>
+          <div class="check-result" id="checker-result" role="status" aria-live="polite"></div>
+        </div>
+      </div>
     </div>
     <figure class="area-map">
       <!-- area-map: drawn by _map/build-map.py from OpenStreetMap data. Re-run that script rather than editing this SVG by hand. -->
@@ -161,111 +175,96 @@
     </div>
   </section>
 
-  <section class="block tight" id="work">
-    <div class="head-row">
-      <div class="section-head">
-        <h2>Real Gardens. Real Results.</h2>
-        <p>Straight off my phone, before and after. Tap a photo to see it bigger.</p>
+  <!-- Scroll effect: where motion is allowed, this section holds still and scrolling flicks
+       through the photos like a stack of prints. Otherwise the photos show as a plain grid. -->
+  <section class="block tight work-scene" id="work" aria-labelledby="work-title">
+    <div class="work-stage">
+      <div class="work-copy">
+        <div class="section-head">
+          <h2 id="work-title">Real Gardens. Real Results.</h2>
+          <p>Straight off my phone, before and after.</p>
+        </div>
+        <div class="stack-caption" id="stack-caption" hidden>
+          <div class="cap-row"><span class="cap-tag" id="cap-tag">Before</span><span class="cap-dots" id="cap-dots" aria-hidden="true"></span></div>
+          <h3 id="cap-title"></h3>
+          <p id="cap-line"></p>
+        </div>
+        <a class="more-link" href="our-work.html">See all our work →</a>
       </div>
-      <a class="more-link" href="our-work.html">See all our work →</a>
-    </div>
-    <div class="jobs">
-      <article class="job" data-category="tidy">
-        <div class="job-pair">
-          <figure class="ba-card">
+      <div class="stack-wrap" id="stack-wrap">
+        <div class="stack" id="stack">
+          <figure class="stack-photo" data-title="Weedy border cleared along the fence">
             <span class="ba-tag">Before</span>
-            <button class="ba-open" type="button" aria-label="View larger: weedy border cleared along the fence, before">
-              <img src="border-1-before.jpg" width="720" height="960" loading="lazy" decoding="async" alt="Garden border along a wooden fence, overgrown with weeds and self-seeded plants, before The Lawn Lads cleared it">
-            </button>
+            <img src="border-1-before.jpg" width="720" height="960" loading="lazy" decoding="async" alt="Garden border along a wooden fence, overgrown with weeds and self-seeded plants, before The Lawn Lads cleared it">
             <figcaption>Weeds taking over the border</figcaption>
           </figure>
-          <figure class="ba-card">
+          <figure class="stack-photo" data-title="Weedy border cleared along the fence">
             <span class="ba-tag after">After</span>
-            <button class="ba-open" type="button" aria-label="View larger: weedy border cleared along the fence, after">
-              <img src="border-1-after.jpg" width="720" height="960" loading="lazy" decoding="async" alt="The same border cleared back to bare soil along the fence, photographed at dusk after the job">
-            </button>
+            <img src="border-1-after.jpg" width="720" height="960" loading="lazy" decoding="async" alt="The same border cleared back to bare soil along the fence, photographed at dusk after the job">
             <figcaption>Cleared the full length of the fence</figcaption>
           </figure>
-        </div>
-        <div class="job-meta">
-          <span class="job-cat" data-cat-label></span>
-          <h3>Weedy border cleared along the fence</h3>
-          <p>The border had filled up with weeds and self-seeded plants. Cleared back to soil along the whole fence line, finishing just as it got dark.</p>
-          <button class="job-open" type="button">View before &amp; after larger</button>
-        </div>
-      </article>
-      <article class="job" data-category="overgrown">
-        <div class="job-pair">
-          <figure class="ba-card">
+          <figure class="stack-photo" data-title="Old shrub dug out of a front bed">
             <span class="ba-tag">Before</span>
-            <button class="ba-open" type="button" aria-label="View larger: overgrown garden path, hinckley area, before">
-              <img src="overgrown-1-before.jpg" width="900" height="1200" loading="lazy" decoding="async" alt="Overgrown garden path with knee-high grass gone to seed, before The Lawn Lads visited">
-            </button>
+            <img src="shrub-1-before.jpg" width="720" height="960" loading="lazy" decoding="async" alt="An old shrub cut down to its base in a front garden bed, with a trench dug around the root ball ready to lift it out">
+            <figcaption>Digging out the old root ball</figcaption>
+          </figure>
+          <figure class="stack-photo" data-title="Old shrub dug out of a front bed">
+            <span class="ba-tag after">After</span>
+            <img src="shrub-1-after.jpg" width="720" height="960" loading="lazy" decoding="async" alt="The front garden bed after the shrub was removed, with the soil turned over and levelled">
+            <figcaption>Bed turned over and levelled</figcaption>
+          </figure>
+          <figure class="stack-photo" data-title="Overgrown garden path, Hinckley area">
+            <span class="ba-tag">Before</span>
+            <img src="overgrown-1-before.jpg" width="900" height="1200" loading="lazy" decoding="async" alt="Overgrown garden path with knee-high grass gone to seed, before The Lawn Lads visited">
             <figcaption>Knee-high and gone to seed</figcaption>
           </figure>
-          <figure class="ba-card">
+          <figure class="stack-photo" data-title="Overgrown garden path, Hinckley area">
             <span class="ba-tag after">After</span>
-            <button class="ba-open" type="button" aria-label="View larger: overgrown garden path, hinckley area, after">
-              <img src="overgrown-1-after.jpg" width="675" height="1200" loading="lazy" decoding="async" alt="The same garden path cut short and cleared, after The Lawn Lads visited">
-            </button>
+            <img src="overgrown-1-after.jpg" width="675" height="1200" loading="lazy" decoding="async" alt="The same garden path cut short and cleared, after The Lawn Lads visited">
             <figcaption>Same spot, same visit</figcaption>
           </figure>
         </div>
-        <div class="job-meta">
-          <span class="job-cat" data-cat-label></span>
-          <h3>Overgrown garden path, Hinckley area</h3>
-          <p>Grass left long enough to go to seed and hide the path. Strimmed down, cut and cleared in a single visit.</p>
-          <button class="job-open" type="button">View before &amp; after larger</button>
-        </div>
-      </article>
-    </div>
-
-  <dialog class="lightbox" id="lightbox" aria-labelledby="lb-title">
-    <div class="lb-inner">
-      <div class="lb-head">
-        <h3 id="lb-title">Before &amp; after</h3>
-        <button class="lb-close" type="button" aria-label="Close">×</button>
-      </div>
-      <div class="lb-body">
-        <div class="lb-pair">
-          <figure><span class="ba-tag" id="lb-before-tag">Before</span><img id="lb-before" alt=""></figure>
-          <figure><span class="ba-tag after" id="lb-after-tag">After</span><img id="lb-after" alt=""></figure>
-        </div>
-        <p class="lb-note" id="lb-note"></p>
-      </div>
-      <div class="lb-nav" id="lb-nav">
-        <button class="btn btn-ghost" type="button" id="lb-prev">← Previous</button>
-        <span class="lb-count" id="lb-count"></span>
-        <button class="btn btn-ghost" type="button" id="lb-next">Next →</button>
       </div>
     </div>
-  </dialog>
   </section>
 
   <section class="block tight" id="how">
-    <div class="section-head">
-      <h2>Simple, from first message to first cut</h2>
-    </div>
-    <div class="process">
-      <div class="step">
-        <span class="num">01</span>
-        <h3>Check your postcode</h3>
-        <p>Use the checker at the top to see if you're in the area.</p>
+    <div class="how-layout">
+      <div class="section-head">
+        <h2>Simple, from first message to first cut</h2>
       </div>
-      <div class="step">
-        <span class="num">02</span>
-        <h3>Quote or book</h3>
-        <p>Send a few photos for a free quote, or book a standard cut straight into the calendar.</p>
-      </div>
-      <div class="step">
-        <span class="num">03</span>
-        <h3>I turn up</h3>
-        <p>On the day we agreed. If the weather's against us, I'll message you to move it.</p>
-      </div>
-      <div class="step">
-        <span class="num">04</span>
-        <h3>Job done</h3>
-        <p>Lawn cut, edges neat, clippings taken away.</p>
+      <div class="how-path" id="how-path">
+        <div class="how-track" aria-hidden="true">
+          <div class="how-track-in"><div class="how-fill" id="how-fill"></div></div>
+          <svg class="how-mower" id="how-mower" width="30" height="44" viewBox="0 0 30 44" focusable="false">
+            <path class="mm-handle" d="M8 3h14M10 3l1.5 11M20 3l-1.5 11"/>
+            <rect class="mm-bag" x="8" y="12" width="14" height="10" rx="2"/>
+            <rect class="mm-wheel" x="1" y="23" width="5" height="7" rx="1.5"/>
+            <rect class="mm-wheel" x="24" y="23" width="5" height="7" rx="1.5"/>
+            <rect class="mm-wheel" x="1" y="34" width="5" height="7" rx="1.5"/>
+            <rect class="mm-wheel" x="24" y="34" width="5" height="7" rx="1.5"/>
+            <rect class="mm-deck" x="4" y="21" width="22" height="21" rx="6"/>
+            <circle class="mm-engine" cx="15" cy="32" r="5"/>
+          </svg>
+        </div>
+        <ol class="how-steps">
+          <li class="how-step">
+            <span class="how-num">01</span>
+            <div><h3>Check your postcode</h3><p>Use the <a class="text-link" href="#area-check">postcode checker</a> to see if you're in the area.</p></div>
+          </li>
+          <li class="how-step">
+            <span class="how-num">02</span>
+            <div><h3>Quote or book</h3><p>Send a few photos for a free quote, or book a standard cut straight into the calendar.</p></div>
+          </li>
+          <li class="how-step">
+            <span class="how-num">03</span>
+            <div><h3>I turn up</h3><p>On the day we agreed. If the weather's against us, I'll message you to move it.</p></div>
+          </li>
+          <li class="how-step">
+            <span class="how-num">04</span>
+            <div><h3>Job done</h3><p>Lawn cut, edges neat, clippings taken away.</p></div>
+          </li>
+        </ol>
       </div>
     </div>
   </section>
@@ -304,6 +303,6 @@
 </nav>
 
 <script src="config.js"></script>
-<script src="site.js"></script>
+<script src="site.js?v=4"></script>
 </body>
 </html>

@@ -134,6 +134,11 @@ async function main() {
   const cssRefs = PAGES.map((p) => (fs.readFileSync(path.join(ROOT, p), "utf8").match(/href="\/?(site\.css[^"]*)"/) || [])[1]);
   check("every page loads the same versioned stylesheet (site.css?v=N)", cssRefs.every((r) => r && /\?v=\d+$/.test(r) && r === cssRefs[0]),
     PAGES.map((p, i) => p + ": " + cssRefs[i]).join(", "));
+  // Same for site.js: a new page with yesterday's cached script would show the home page's
+  // pinned layout with nothing drawing in it.
+  const jsRefs = PAGES.map((p) => (fs.readFileSync(path.join(ROOT, p), "utf8").match(/src="\/?(site\.js[^"]*)"/) || [])[1]);
+  check("every page loads the same versioned script (site.js?v=N)", jsRefs.every((r) => r && /\?v=\d+$/.test(r) && r === jsRefs[0]),
+    PAGES.map((p, i) => p + ": " + jsRefs[i]).join(", "));
   for (const width of [390, 1280]) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, ignoreHTTPSErrors: true });
     await setup(context, state);
@@ -250,6 +255,84 @@ async function main() {
     }
     const real = problems.filter((x) => !/status of 404/.test(x));   // the "not found" postcode is a genuine 404
     check("checker: no script ran / no errors", real.length === 0, real.join(" | "));
+    await context.close();
+  }
+
+  console.log("Home page scroll effects");
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 760 }, isMobile: true, hasTouch: true });
+    await setup(context, state);
+    const page = await context.newPage(); const problems = []; watch(page, problems);
+    await page.goto(base + "index.html");
+    await page.evaluate(() => document.fonts.ready);
+    // scroll so a pinned scene is a given fraction of the way through
+    const into = (sel, frac) => page.evaluate(([sel, frac]) => {
+      const s = document.querySelector(sel), stage = s.firstElementChild;
+      const top = s.getBoundingClientRect().top + window.scrollY - parseFloat(getComputedStyle(stage).top);
+      window.scrollTo({ top: top + (s.offsetHeight - stage.offsetHeight) * frac, behavior: "instant" });   // the site scrolls smoothly otherwise
+    }, [sel, frac]).then(() => page.waitForTimeout(250));
+    const lawnText = () => page.textContent("#lawn-status");
+    const pinned = await page.evaluate(() => getComputedStyle(document.querySelector(".mow-stage")).position);
+    const before = await lawnText();
+    await into(".mow-scene", 0.5);
+    const half = await lawnText();
+    const halfPinned = await page.evaluate(() => Math.round(document.querySelector(".mow-stage").getBoundingClientRect().top));
+    await into(".mow-scene", 1);
+    const after = await lawnText();
+    check("hero holds still while scrolling mows the lawn", pinned === "sticky" && halfPinned === 0 && /not started/.test(before) && /^\d+% cut$/.test(half) && /Done/.test(after),
+      JSON.stringify({ pinned, halfPinned, before, half, after }));
+    const lawnDrawn = await page.evaluate(() => {
+      const c = document.querySelector("#lawn"), d = c.getContext("2d").getImageData(c.width >> 1, c.height >> 1, 1, 1).data;
+      return c.width > 0 && d[3] === 255;
+    });
+    check("lawn is drawn", lawnDrawn);
+    const captions = [];
+    let barClear = null;
+    for (const f of [0, 0.5, 1]) {
+      await into(".work-scene", f);
+      captions.push(await page.textContent("#cap-tag") + ": " + await page.textContent("#cap-title"));
+      if (f === 0.5) barClear = await page.evaluate(() => {
+        const bar = document.querySelector("#mobile-bar").getBoundingClientRect(), wrap = document.querySelector("#stack-wrap").getBoundingClientRect();
+        return { barShowing: !document.body.classList.contains("bar-hidden"), wrapBottom: Math.round(wrap.bottom), barTop: Math.round(bar.top) };
+      });
+    }
+    check("photo stack flicks from the first photo to the last", /^Before: Weedy border/.test(captions[0]) && /^After: Overgrown garden path/.test(captions[2]) && captions[1] !== captions[0], captions.join(" | "));
+    check("quick-contact bar shows over the photo stack without covering it", barClear.barShowing && barClear.wrapBottom <= barClear.barTop, JSON.stringify(barClear));
+    await page.evaluate(() => document.querySelector(".how-step:last-child").scrollIntoView({ block: "center", behavior: "instant" }));
+    await page.waitForTimeout(250);
+    check("path gets mown down to the last step", await page.evaluate(() => document.querySelectorAll(".how-step.done").length === 4));
+    check("no errors while scrolling", problems.length === 0, problems.join(" | "));
+    await context.close();
+  }
+  {
+    // "Reduce motion" switched on: an ordinary page, nothing pinned or moving, every photo showing
+    const context = await browser.newContext({ viewport: { width: 390, height: 760 }, reducedMotion: "reduce" });
+    await setup(context, state);
+    const page = await context.newPage(); const problems = []; watch(page, problems);
+    await page.goto(base + "index.html");
+    const still = await page.evaluate(() => ({
+      position: getComputedStyle(document.querySelector(".mow-stage")).position,
+      heroTall: document.querySelector(".mow-scene").offsetHeight > 1.6 * window.innerHeight,
+      statusShown: !document.querySelector("#lawn-status").hidden,
+      photosShown: Array.from(document.querySelectorAll(".stack-photo")).filter((p) => p.getBoundingClientRect().height > 100 && getComputedStyle(p).opacity === "1" && !p.style.transform).length,
+      pathMown: document.querySelector(".how-fill").offsetHeight === document.querySelector(".how-track-in").clientHeight
+    }));
+    check("reduce motion: nothing pinned or animated, all 6 photos shown", still.position !== "sticky" && !still.heroTall && !still.statusShown && still.photosShown === 6 && still.pathMown, JSON.stringify(still));
+    check("reduce motion: no errors", problems.length === 0, problems.join(" | "));
+    await context.close();
+  }
+  {
+    // JavaScript off: the same still page, with the striped lawn standing in for the drawing
+    const context = await browser.newContext({ viewport: { width: 390, height: 760 }, javaScriptEnabled: false });
+    await setup(context, state);
+    const page = await context.newPage();
+    await page.goto(base + "index.html");
+    const noJs = await page.evaluate(() => ({
+      position: getComputedStyle(document.querySelector(".mow-stage")).position,
+      lawnBg: getComputedStyle(document.querySelector(".lawn-wrap")).backgroundImage,
+      photos: Array.from(document.querySelectorAll(".stack-photo")).filter((p) => p.getBoundingClientRect().height > 100).length
+    }));
+    check("JavaScript off: still page with a striped lawn and all 6 photos", noJs.position !== "sticky" && /gradient/.test(noJs.lawnBg) && noJs.photos === 6, JSON.stringify(noJs));
     await context.close();
   }
 

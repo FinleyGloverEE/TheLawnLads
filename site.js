@@ -633,6 +633,265 @@
     document.head.appendChild(ld);
   }
 
+  /* ---------- home page scroll effects ---------- */
+  // The lawn that gets mown, price cards tilting in, the photo stack and the mown path. They only
+  // animate when FX_QUERY matches, which is the same media query site.css uses for the pinned
+  // layout, so "reduce motion", older browsers and JavaScript-off visitors all get the still page.
+  var FX_QUERY = "(scripting: enabled) and (prefers-reduced-motion: no-preference)";
+  var lawnCanvas = $("#lawn"), stackEl = $("#stack"), howPath = $("#how-path");
+  if (lawnCanvas || stackEl || howPath) {
+    var fx = !!(window.matchMedia && window.matchMedia(FX_QUERY).matches);
+    var clamp = function (v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; };
+    var easeInOut = function (t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
+    var rootCss = getComputedStyle(document.documentElement);
+    var token = function (name) { return rootCss.getPropertyValue(name).trim(); };
+    // How far through a pinned scene we are: 0 when its stage first sticks, 1 when it lets go
+    var sceneProgress = function (stage) {
+      var r = stage.parentNode.getBoundingClientRect();
+      var run = r.height - stage.offsetHeight;
+      return run > 0 ? clamp(((parseFloat(getComputedStyle(stage).top) || 0) - r.top) / run, 0, 1) : 0;
+    };
+
+    /* the lawn in the hero */
+    var lawn = lawnCanvas && (function () {
+      var ctx = lawnCanvas.getContext("2d");
+      var wrap = $("#lawn-wrap"), status = $("#lawn-status"), bar = $("#lawn-bar"), barFill = $("#lawn-bar span"), hint = $("#mow-hint");
+      var P = {
+        base: token("--grass-base"), dark: token("--grass-dark"), olive: token("--grass-olive"), green: token("--grass-green"),
+        straw: token("--straw"), straw2: token("--straw-2"), pale: token("--straw-pale"),
+        daisy: token("--surface"), dandelion: token("--dandelion"), dandelionDk: token("--dandelion-dk"),
+        stripeA: token("--stripe-a"), stripeB: token("--stripe-b"), cutLight: token("--cut-light"), cutDark: token("--cut-dark"),
+        ink: token("--ink"), body: token("--accent"), bag: token("--mower-bag")
+      };
+      var w = 0, h = 0, dpr = 1, rows = 4, rowH = 0, L = 0, Wd = 0, longGrass = null, stripes = null, shownStatus = "";
+      // The same "random" grass every time, so it doesn't change when the page is resized
+      var seeded = function (seed) {
+        return function () {
+          seed = seed + 0x6D2B79F5 | 0;
+          var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+          t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+          return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+      };
+      var layer = function () {
+        var c = document.createElement("canvas");
+        c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+        c.getContext("2d").scale(dpr, dpr);
+        return c;
+      };
+      var drawLongGrass = function () {
+        var c = layer(), x = c.getContext("2d"), r = seeded(7), i;
+        var under = [P.dark, P.olive, P.green], over = [P.green, P.straw, P.straw2, P.pale];
+        var count = Math.round(w * h / 14);
+        x.fillStyle = P.base; x.fillRect(0, 0, w, h);
+        x.lineCap = "round";
+        for (i = 0; i < count; i++) {
+          var set = i > count * 0.45 ? over : under;
+          var px = r() * w, py = r() * h, len = 7 + r() * 16, bend = (r() - 0.5) * 6;
+          var ang = -0.75 + (r() - 0.5) * 1.1 + Math.sin(px * 0.02 + py * 0.015) * 0.35;
+          var ex = px + Math.cos(ang) * len, ey = py + Math.sin(ang) * len;
+          x.strokeStyle = set[Math.floor(r() * set.length)];
+          x.globalAlpha = 0.55 + r() * 0.45; x.lineWidth = 0.8 + r() * 1.4;
+          x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo((px + ex) / 2 + bend, (py + ey) / 2 - bend, ex, ey); x.stroke();
+        }
+        x.globalAlpha = 1;
+        // dandelions and daisies, gone once it's cut
+        for (i = Math.round(w * h / 6500); i > 0; i--) {
+          var fx0 = r() * w, fy0 = r() * h, daisy = r() < 0.4, s = 2.2 + r() * 1.6;
+          x.fillStyle = daisy ? P.daisy : P.dandelion; x.beginPath(); x.arc(fx0, fy0, s, 0, Math.PI * 2); x.fill();
+          x.fillStyle = daisy ? P.dandelion : P.dandelionDk; x.beginPath(); x.arc(fx0, fy0, s * 0.42, 0, Math.PI * 2); x.fill();
+        }
+        return c;
+      };
+      var drawStripes = function () {
+        var c = layer(), x = c.getContext("2d"), r = seeded(11), i;
+        for (i = 0; i < rows; i++) { x.fillStyle = i % 2 ? P.stripeB : P.stripeA; x.fillRect(0, i * rowH, w, rowH + 1); }
+        x.lineCap = "round"; x.lineWidth = 1;
+        for (i = Math.round(w * h / 28); i > 0; i--) {
+          var px = r() * w, py = r() * h, dir = Math.floor(py / rowH) % 2 ? -1 : 1;
+          x.strokeStyle = r() < 0.5 ? P.cutLight : P.cutDark; x.globalAlpha = 0.18 + r() * 0.22;
+          x.beginPath(); x.moveTo(px, py); x.lineTo(px + dir * (2 + r() * 3), py + (r() - 0.5) * 1.5); x.stroke();
+        }
+        x.globalAlpha = 1;
+        return c;
+      };
+      var box = function (x, y, bw, bh, rad) {
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x, y, bw, bh, rad); else ctx.rect(x, y, bw, bh);
+      };
+      // Seen from above, facing the way it's going, with the handle trailing behind
+      var drawMower = function (cx, cy, dir, done) {
+        if (cx < -L * 1.3 || cx > w + L * 1.3) return;
+        var hw = Wd / 2;
+        ctx.save();
+        ctx.translate(cx, cy + Math.sin(cx * 0.35) * 0.6);   // a little engine judder
+        ctx.scale(dir, 1);
+        ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.strokeStyle = P.ink;
+        ctx.lineWidth = 3; ctx.beginPath();
+        ctx.moveTo(-L * 0.45, -hw * 0.55); ctx.lineTo(-L * 1.05, -hw * 0.62);
+        ctx.moveTo(-L * 0.45, hw * 0.55); ctx.lineTo(-L * 1.05, hw * 0.62); ctx.stroke();
+        ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-L * 1.05, -hw * 0.72); ctx.lineTo(-L * 1.05, hw * 0.72); ctx.stroke();
+        // hard shadow (same offset as the buttons) and wheels
+        ctx.fillStyle = P.ink;
+        box(-L * 0.52 + 3 * dir, -hw + 3, L * 1.02, Wd, 9); ctx.fill();
+        [-L * 0.14, L * 0.3].forEach(function (wx) {
+          box(wx, -hw - 5, L * 0.16, 8, 2); ctx.fill();
+          box(wx, hw - 3, L * 0.16, 8, 2); ctx.fill();
+        });
+        // grass box, filling up as the job goes on
+        ctx.lineWidth = 2.5;
+        box(-L * 0.52, -hw * 0.82, L * 0.38, hw * 1.64, 4); ctx.fillStyle = P.bag; ctx.fill(); ctx.stroke();
+        ctx.fillStyle = P.stripeB;
+        ctx.fillRect(-L * 0.52 + 4, -hw * 0.82 + 4, Math.max(0, (L * 0.38 - 8) * done), hw * 1.64 - 8);
+        // deck and engine
+        box(-L * 0.2, -hw, L * 0.7, Wd, 10); ctx.fillStyle = P.body; ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(L * 0.17, 0, Wd * 0.21, 0, Math.PI * 2); ctx.fillStyle = P.bag; ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(L * 0.17, 0, Wd * 0.08, 0, Math.PI * 2); ctx.fillStyle = P.body; ctx.fill();
+        ctx.restore();
+      };
+      var build = function () {
+        var r = wrap.getBoundingClientRect(), nw = Math.round(r.width), nh = Math.round(r.height);
+        if (!nw || !nh || (nw === w && nh === h)) return;
+        w = nw; h = nh;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        lawnCanvas.width = Math.round(w * dpr); lawnCanvas.height = Math.round(h * dpr);
+        rows = clamp(Math.round(h / 80), 3, 6); rowH = h / rows;
+        Wd = rowH * 0.78; L = Wd * 1.15;
+        longGrass = drawLongGrass(); stripes = drawStripes();
+      };
+      // done: 0 = not started, 1 = finished. The mower does one row at a time, back and forth,
+      // starting just inside the left edge and finishing with its handle clear of the lawn.
+      var draw = function (done) {
+        if (!longGrass) return;
+        var span = w + 1.65 * L, start = 1.1 * L;
+        var d = start + done * (rows * span - start);
+        var row = Math.min(rows - 1, Math.floor(d / span)), t = d - row * span;
+        var dir = row % 2 ? -1 : 1;
+        var cx = dir === 1 ? t - 0.55 * L : w + 0.55 * L - t;
+        var y0 = row * rowH, y1 = y0 + rowH;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.drawImage(stripes, 0, 0, w, h);
+        // Still long: the rest of this row and every row below it. Its edge casts a hard shadow.
+        var from = dir === 1 ? clamp(cx, 0, w) : 0, to = dir === 1 ? w : clamp(cx, 0, w);
+        var uncut = new Path2D(), shadow = new Path2D();
+        if (to > from) { uncut.rect(from, y0, to - from, rowH); shadow.rect(dir === 1 ? from - 4 : from, y0 - 4, to - from + 4, rowH + 4); }
+        if (y1 < h - 0.5) { uncut.rect(0, y1, w, h - y1); shadow.rect(0, y1 - 4, w, h - y1 + 4); }
+        ctx.globalAlpha = 0.26; ctx.fillStyle = P.ink; ctx.fill(shadow); ctx.globalAlpha = 1;
+        ctx.save(); ctx.clip(uncut); ctx.drawImage(longGrass, 0, 0, w, h); ctx.restore();
+        drawMower(cx, y0 + rowH / 2, dir, done);
+      };
+      var show = function (progress) {
+        var done = clamp((progress - 0.04) / 0.86, 0, 1);
+        draw(done);
+        var text = done <= 0 ? "Overgrown · not started" : done >= 1 ? "Done · clippings taken away" : Math.round(done * 100) + "% cut";
+        if (text !== shownStatus) { status.textContent = text; shownStatus = text; }
+        barFill.style.width = (done * 100).toFixed(1) + "%";
+        hint.style.opacity = String(1 - clamp(done * 5, 0, 1));
+      };
+      if (fx) { status.hidden = false; bar.hidden = false; hint.hidden = false; }
+      return { build: build, draw: draw, show: show };
+    })();
+
+    /* price cards tilt into place as they arrive */
+    var priceCards = fx ? $$(".home-prices .price-card") : [];
+    var priceRise = [];
+    var tiltPrices = function () {
+      var vh = window.innerHeight;
+      var sameRow = priceCards.length > 1 && priceCards[0].offsetTop === priceCards[1].offsetTop;
+      priceCards.forEach(function (card, i) {
+        var top = card.getBoundingClientRect().top - (priceRise[i] || 0);   // where it sits without the effect
+        var v = clamp((vh - top) / (vh * 0.45) - (sameRow ? i * 0.14 : 0), 0, 1);
+        var e = 1 - Math.pow(1 - v, 3);
+        priceRise[i] = (1 - e) * 70;
+        card.style.setProperty("--rise", priceRise[i].toFixed(1) + "px");
+        card.style.setProperty("--tilt", ((1 - e) * (i % 2 ? 7 : -7)).toFixed(2) + "deg");
+      });
+    };
+
+    /* our work: flick through the photos like a stack of prints */
+    var stack = stackEl && fx && (function () {
+      var wrap = $("#stack-wrap"), cards = $$(".stack-photo", stackEl), n = cards.length;
+      var caption = $("#stack-caption"), tag = $("#cap-tag"), title = $("#cap-title"), line = $("#cap-line"), dotsBox = $("#cap-dots");
+      var lean = [0, 3, -2.5, 2, -3, 2.5];   // how the photos underneath sit in the pile
+      var dots = cards.map(function () { var d = document.createElement("i"); dotsBox.appendChild(d); return d; });
+      var cardW = 300, shown = -1;
+      caption.hidden = false;
+      var size = function () {
+        var r = wrap.getBoundingClientRect();
+        var ch = Math.max(170, Math.min(r.height - 20, (r.width - 24) / 0.75, 640));
+        cardW = ch * 0.75;
+        stackEl.style.setProperty("--stack-w", cardW.toFixed(1) + "px");
+        stackEl.style.setProperty("--stack-h", ch.toFixed(1) + "px");
+      };
+      var setCaption = function (i) {
+        var card = cards[i], after = !!$(".ba-tag.after", card);
+        shown = i;
+        tag.textContent = after ? "After" : "Before";
+        tag.classList.toggle("after", after);
+        title.textContent = card.getAttribute("data-title");
+        line.textContent = $("figcaption", card).textContent;
+        dots.forEach(function (d, k) { d.classList.toggle("on", k === i); d.classList.toggle("seen", k < i); });
+        caption.classList.remove("swap"); void caption.offsetWidth; caption.classList.add("swap");
+      };
+      var show = function (progress) {
+        var f = clamp((progress - 0.05) / 0.88, 0, 1) * (n - 1);
+        var oneWay = window.innerWidth > 820;   // beside the text: always flick away from it
+        cards.forEach(function (card, k) {
+          var away = easeInOut(clamp(f - k, 0, 1));   // 0 on the pile, 1 flicked off
+          var depth = Math.max(0, k - f), d3 = Math.min(depth, 3);
+          var side = oneWay || k % 2 ? 1 : -1;
+          card.style.transform = "translate(" + (side * away * cardW * 1.3).toFixed(1) + "px," + (d3 * 11 - away * 40).toFixed(1) + "px) rotate(" +
+            (side * away * 22 + lean[k % lean.length] * Math.min(depth, 1)).toFixed(2) + "deg) scale(" + (1 - d3 * 0.035).toFixed(3) + ")";
+          card.style.opacity = depth > 3.2 ? "0" : String(1 - clamp((away - 0.55) / 0.45, 0, 1));
+        });
+        var top = Math.min(n - 1, Math.floor(f + 0.5));
+        if (top !== shown) setCaption(top);
+      };
+      return { size: size, show: show };
+    })();
+
+    /* how it works: the path gets mown as you read down */
+    var mowPath = howPath && fx && (function () {
+      var fill = $("#how-fill"), mower = $("#how-mower"), steps = $$(".how-step", howPath);
+      return function () {
+        var r = howPath.getBoundingClientRect();
+        var y = clamp((window.innerHeight * 0.62 - r.top) / r.height, 0, 1) * r.height;
+        fill.style.height = y.toFixed(1) + "px";
+        mower.style.top = Math.min(r.height - 30, y - 10).toFixed(1) + "px";
+        steps.forEach(function (s) {
+          var num = $(".how-num", s).getBoundingClientRect();
+          s.classList.toggle("done", num.top + num.height / 2 <= r.top + y + 2);
+        });
+      };
+    })();
+
+    var mowStage = $(".mow-stage"), workStage = $(".work-stage"), ticking = false;
+    var updateEffects = function () {
+      ticking = false;
+      if (lawn && fx) lawn.show(sceneProgress(mowStage));
+      if (stack) stack.show(sceneProgress(workStage));
+      if (fx) tiltPrices();
+      if (mowPath) mowPath();
+    };
+    var measureEffects = function () {
+      if (lawn) { lawn.build(); if (!fx) lawn.draw(0.55); }   // the still page shows it half done
+      if (stack) stack.size();
+      updateEffects();
+    };
+    if (fx) window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(updateEffects); } }, { passive: true });
+    window.addEventListener("resize", measureEffects);
+    if ("ResizeObserver" in window) {
+      var resizePending = false;
+      var resized = new ResizeObserver(function () {
+        if (resizePending) return;
+        resizePending = true;
+        requestAnimationFrame(function () { resizePending = false; measureEffects(); });
+      });
+      [$("#lawn-wrap"), $("#stack-wrap")].forEach(function (el) { if (el) resized.observe(el); });
+    }
+    measureEffects();
+  }
+
   /* ---------- sticky mobile bar ---------- */
   var body = document.body;
   var hero = $("[data-bar-hide]");

@@ -400,8 +400,8 @@ The privacy notice is published at **https://thelawnlads.co.uk/privacy.html**, l
 Two test suites are in `_security-tests/` (a folder starting with `_`, so it's never published). They need Node.js; the browser tests also need Playwright (`npm i -g playwright`).
 
 ```
-node _security-tests/gas.test.js     # the Apps Script, against mocked Google services and Cloudflare  (101 checks)
-node _security-tests/site.test.js    # all pages in real Chromium, third parties mocked             (158 checks)
+node _security-tests/gas.test.js     # the Apps Script, against mocked Google services and Cloudflare  (121 checks)
+node _security-tests/site.test.js    # all pages in real Chromium, third parties mocked             (230 checks)
 ```
 
 **Covered:**

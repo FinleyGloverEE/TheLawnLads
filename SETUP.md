@@ -16,7 +16,7 @@ The site is now split into separate pages. Everything sits in **one flat folder,
 | `404.html` | Shown if someone lands on a page that doesn't exist |
 | `config.js` | **Your settings** (phone, WhatsApp, email, booking link, quote form address, areas) |
 | `quote-form-google-script.gs` | The quote-form receiver that runs in Google Apps Script. It doesn't need uploading to GitHub (see section 1) |
-| `site.css`, `site.js` | The look and the behaviour, shared by every page. Every page loads the stylesheet as `site.css?v=2`: after changing `site.css`, raise that number on all 9 pages, or visitors' browsers can mix the new pages with the old stylesheet for up to 10 minutes. The site tests check the pages all match |
+| `site.css`, `site.js` | The look and the behaviour, shared by every page. Every page loads them as `site.css?v=4` and `site.js?v=4`: after changing either file, raise that number on all 9 pages, or visitors' browsers can mix the new pages with the old file for up to 10 minutes. The site tests check the pages all match |
 | `*.woff2`, `FONT-LICENSE.txt` | The two fonts (Archivo Black and Atkinson Hyperlegible), served from your own site instead of Google, plus their free licence |
 | `_config.yml` | Tells GitHub Pages not to publish your notes (`SETUP.md`, `SECURITY.md`, the privacy draft) or the Google Script code |
 | `SECURITY.md` | Security review, limits, and what to do if the form is ever spammed. **Read section 1 of it after any security update** |
@@ -146,6 +146,7 @@ The FAQ (in `faq.html`) is written in your voice, but some answers are **policie
 - New page title and description aimed at "lawn mowing Hinckley"-type searches. There's also LocalBusiness structured data listing your six areas, phone, prices and socials.
 - Every main button has a `data-cta="…"` label. If you add Google Analytics or Plausible later, you can track which buttons get clicked without touching the design.
 - The sticky Call / WhatsApp / Get a Quote bar only shows on phones. It stays out of the way while the top of the page is on screen and while someone is typing in a form.
+- The home page scrolls like a story. The top section holds still while scrolling mows a drawn lawn, the price cards tilt into place, the job photos flick past like a stack of prints, and the "how it works" path gets mown as you read down. Anyone whose phone or computer is set to reduce motion, or who has JavaScript off, gets an ordinary still page with the same content. To add a job to the stack, copy one of the `stack-photo` blocks in `index.html` (it takes up to 6 photos as it stands; more needs another `nth-child` line in `site.css`).
 
 ## 7. What was tested
 
@@ -162,4 +163,5 @@ After the split into pages, everything was checked again on all eight pages at p
 - **Every page:** no sideways scrolling, one main heading each, the menu highlights the page you're on, every internal link points to a file that exists, and there are no script errors.
 - **Across pages:** the phone "Menu" button opens and closes. A postcode checked on the home page carries over to the quote form.
 - **Our Work:** the filter buttons and the photo pop-up work with all three jobs.
+- **Home page scroll effects:** the lawn gets mown as you scroll and the hero stays pinned while it happens, the photo stack runs from the first photo to the last, the path is mown down to the last step, and the quick-contact bar doesn't cover the photos. With "reduce motion" on, or JavaScript off, nothing is pinned or moving and all six photos show.
 - **Quote form:** it was switched to the Google Sheet script and checked against a simulated Google Script. That covered the exact data sent (including the photos as real JPEGs), the thank-you message, a clear message when the form isn't connected yet, and what happens if the script returns an error or the connection drops. The script itself was run against simulated Google services. It saves the row, keeps only real image files, blocks spreadsheet-formula tricks, flags outside-area requests in the subject line, ignores honeypot spam, enforces the hourly limit, and still keeps the quote in the Sheet if the email fails.
